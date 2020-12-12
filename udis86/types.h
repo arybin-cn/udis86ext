@@ -183,7 +183,7 @@ struct ud
     size_t    inp_buf_size;
     size_t    inp_buf_index;
     uint8_t   inp_curr;
-    size_t    inp_ctr;
+    uint8_t   inp_ctr;
     uint8_t   inp_sess[64];
     int       inp_end;
     int       inp_peek;

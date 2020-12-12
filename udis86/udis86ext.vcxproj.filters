@@ -33,6 +33,9 @@
     <ClCompile Include="udis86.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="udis86ext.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="decode.h">

@@ -108,7 +108,6 @@ extern LIBUDIS86_DLLEXTERN void ud_set_sym_resolver(struct ud *u,
                                                         int64_t *offset));
 
 /* ========================================================================== */
-
 #ifdef __cplusplus
 }
 #endif

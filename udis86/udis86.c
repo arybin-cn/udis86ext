@@ -50,8 +50,7 @@ ud_abs(int64_t src) {
 extern void
 ud_init(struct ud* u)
 {
-    memset((void*)u, 0, sizeof(struct ud));
-    ud_set_mode(u, 16);
+    ud_set_mode(u, 32);
     u->mnemonic = UD_Iinvalid;
     ud_set_pc(u, 0);
 #ifndef __UD_STANDALONE__

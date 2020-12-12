@@ -118,6 +118,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -149,6 +150,7 @@
     <ClCompile Include="syn-intel.c" />
     <ClCompile Include="syn.c" />
     <ClCompile Include="udis86.c" />
+    <ClCompile Include="udis86ext.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="decode.h" />

@@ -5,53 +5,8 @@
 #include <stdlib.h>
 #include <cstdint>
 
-
-//size_t udx_gen_sig(uint8_t* mem_buffer, size_t mem_buffer_size,
-//    char* sig_buffer, size_t sig_buffer_size, size_t insn_size, enum ud_match_lvl match_lvl) {
-//    ud_t ud_obj;
-//    ud_init(&ud_obj);
-//    ud_set_input_buffer(&ud_obj, mem_buffer, mem_buffer_size);
-//    ud_set_mode(&ud_obj, 32);
-//    size_t insn_size_readed = 0, insn_sig_size, sig_size = 0;
-//    const char* insn_sig;
-//    memset(sig_buffer, 0, sig_buffer_size);
-//    while (ud_disassemble(&ud_obj)) {
-//        insn_sig = ud_insn_hex_sig(&ud_obj, match_lvl);
-//        insn_sig_size = strlen(insn_sig);
-//        if (strcat_s(sig_buffer, sig_buffer_size, insn_sig)) return 0;
-//        sig_size += insn_sig_size;
-//        sig_buffer += insn_sig_size;
-//        sig_buffer_size -= insn_sig_size;
-//        if (++insn_size_readed >= insn_size) break;
-//    }
-//    return sig_size;
-//}
-//size_t udx_gen_sig_rnd(uint8_t* mem_buffer, size_t mem_buffer_size,
-//    char* sig_buffer, size_t sig_buffer_size, size_t insn_size) {
-//    ud_t ud_obj;
-//    ud_init(&ud_obj);
-//    ud_set_input_buffer(&ud_obj, mem_buffer, mem_buffer_size);
-//    ud_set_mode(&ud_obj, 32);
-//    size_t insn_size_readed = 0, insn_sig_size, sig_size = 0;
-//    const char* insn_sig;
-//    memset(sig_buffer, 0, sig_buffer_size);
-//    while (ud_disassemble(&ud_obj)) {
-//        insn_sig = ud_insn_hex_sig(&ud_obj, (ud_match_lvl_t)(rand() % UD_MATCH_ALL));
-//        insn_sig_size = strlen(insn_sig);
-//        if (strcat_s(sig_buffer, sig_buffer_size, insn_sig)) return 0;
-//        sig_size += insn_sig_size;
-//        sig_buffer += insn_sig_size;
-//        sig_buffer_size -= insn_sig_size;
-//        if (++insn_size_readed >= insn_size) break;
-//    }
-//    return sig_size;
-//}
-
-
-
 int main()
 {
-
     uint8_t data[] =
     {
        0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x08, 0xFF, 0x75, 0x08, 0xE8, 0x72, 0xFE, 0xFF, 0xFF, 0x8D, 0x4D,
@@ -65,17 +20,20 @@ int main()
        0x00, 0x75, 0xF0, 0xB8, 0x00, 0x00, 0x00, 0x11, 0x8B, 0xC1, 0x89, 0x43, 0x0C, 0x90, 0xCC, 0xCC
     };
 
-    //srand(time(0));
-    //char sig_buffer[256];
-    //for (size_t i = 0; i < 50; i++) {
-    //    udx_gen_sig_rnd(data, sizeof(data), sig_buffer, sizeof(sig_buffer), 8 + rand() % 8);
-    //    printf("%s\n", sig_buffer);
-    //}
+    udx_t udx;
+    udx_init(&udx, data, sizeof(data), 0x012FAC60, 32);
+    char sig[100];
+    for (size_t i = 0; i < 20; i++)
+    {
+        udx_gen_sig_rnd(&udx, 0x012FAC60, sig, sizeof(sig));
+        printf("%s\n", sig);
 
+    }
 
-    ud_t ud_obj;
+    //ud_t ud_obj;
+    //ud_init(&ud_obj);
 
-    memset(&ud_obj, 0, sizeof(ud_t));
+    /*ud_t ud_obj;
 
     ud_init(&ud_obj);
     ud_set_input_buffer(&ud_obj, data, sizeof(data));
@@ -117,7 +75,7 @@ int main()
         }
         printf("\t\tSTB:\t%d\n", ud_obj.modrm_stb);
         printf("\n");
-    }
+    }*/
 
     return 0;
 }
