@@ -39,12 +39,16 @@ extern "C" {
 * =============================================================================
 */
 
+#define SIG_WILDCARD 0xFFFF
+
 typedef struct {
     ud_t ud;
     uint8_t* mem_buffer;
     size_t mem_buffer_size;
     size_t load_base;
 }udx_t;
+
+extern const char* ud_insn_hex_sig(struct ud* u, enum ud_match_lvl match_lvl);
 
 extern void udx_init(udx_t* udx, uint8_t* mem_buffer, size_t mem_buffer_size, size_t load_base, uint8_t mode);
 extern size_t udx_gen_sig(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size, size_t insn_size, enum ud_match_lvl match_lvl);

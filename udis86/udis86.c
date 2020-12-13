@@ -36,12 +36,6 @@
 
 static void ud_inp_init(struct ud* u);
 
-static uint64_t
-ud_abs(int64_t src) {
-    int64_t const mask = (src >> (sizeof(int) * 8)) - 1;
-    return (src ^ mask) - mask;
-}
-
 /* =============================================================================
  * ud_init
  *    Initializes ud_t object.
@@ -49,7 +43,9 @@ ud_abs(int64_t src) {
  */
 extern void
 ud_init(struct ud* u)
-{
+{  
+    uint32_t* pu = (uint32_t*)u;
+    for (size_t i = 0; i < sizeof(ud_t) / 4; i++) pu[i] = 0;
     ud_set_mode(u, 32);
     u->mnemonic = UD_Iinvalid;
     ud_set_pc(u, 0);
@@ -57,7 +53,7 @@ ud_init(struct ud* u)
     ud_set_input_file(u, stdin);
 #endif /* __UD_STANDALONE__ */
     ud_set_asm_buffer(u, u->asm_buf_int, sizeof(u->asm_buf_int));
-    u->match_disp_threshold = 0x20;
+    u->match_disp_threshold = 0x50;
     u->match_imm_threshold = 0x100;
 }
 
@@ -183,55 +179,6 @@ ud_insn_hex(struct ud* u)
         }
     }
     return u->insn_hexcode;
-}
-
-/* =============================================================================
- * ud_insn_hex_sig() - Returns hex signature form of disassembled instruction.
- * =============================================================================
- */
-const char*
-ud_insn_hex_sig(struct ud* u, enum ud_match_lvl match_lvl)
-{
-    uint8_t i, j;
-    size_t insn_len;
-    char* src_hex = (char*)u->insn_hexcode;
-    ud_insn_hex(u);
-    if (match_lvl == UD_MATCH_ALL) return src_hex;
-    if (match_lvl == UD_MATCH_NONE) {
-        insn_len = ud_insn_len(u);
-        for (i = 0, j = 0; j < insn_len; i += 3, j++) {
-            src_hex[i] = '?'; src_hex[i + 1] = '?';
-        }
-        return src_hex;
-    }
-    if (u->have_modrm) {
-        if (match_lvl < UD_MATCH_HIGH || !u->modrm_stb) {
-            i = u->modrm_offset * 3;
-            src_hex[i] = '?';
-            src_hex[i + 1] = '?';
-        }
-    }
-    if (u->have_sib && match_lvl < UD_MATCH_HIGH) {
-        i = u->sib_offset * 3;
-        src_hex[i] = '?';
-        src_hex[i + 1] = '?';
-    }
-    if (u->have_disp) {
-        if (ud_abs(u->disp) > u->match_disp_threshold || match_lvl < UD_MATCH_MID) {
-            for (i = u->disp_offset * 3, j = 0; j < u->disp_size; i += 3, j++) {
-                src_hex[i] = '?'; src_hex[i + 1] = '?';
-            }
-        }
-    }
-    if (u->have_imm) {
-        if (ud_abs(u->imm) > u->match_imm_threshold || match_lvl < UD_MATCH_MID) {
-            for (i = u->imm_offset * 3, j = 0; j < u->imm_size; i += 3, j++) {
-                src_hex[i] = '?'; src_hex[i + 1] = '?';
-            }
-        }
-    }
-
-    return src_hex;
 }
 
 /* =============================================================================
