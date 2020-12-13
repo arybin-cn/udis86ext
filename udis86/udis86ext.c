@@ -37,7 +37,7 @@ size_t udx_gen_sig_rnd(udx_t* udx, size_t target_addr, char* sig_buffer, size_t 
     ud_input_skip(&udx->ud, target_addr - udx->load_base);
     ud_set_pc(&udx->ud, target_addr);
     memset(sig_buffer, 0, sig_buffer_size);
-    size_t insn_size_readed = 0, insn_sig_size, sig_size = 0, insn_size = 4 + rand() % (4 + 1);
+    size_t insn_size_readed = 0, insn_sig_size, sig_size = 0, insn_size = 5 + rand() % (5 + 1);
     const char* insn_sig;
     while (ud_disassemble(&udx->ud)) {
         insn_sig = ud_insn_hex_sig(&udx->ud, (ud_match_lvl_t)(rand() % UD_MATCH_ALL));
