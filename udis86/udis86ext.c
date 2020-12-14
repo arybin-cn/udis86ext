@@ -1,60 +1,18 @@
-#include "udis86.h"
-#include <string.h>
-#include <time.h>
 #include <stdlib.h>
+#include "udis86.h" 
 
-uint64_t ud_abs(int64_t src) {
+
+
+uint64_t udx_abs(int64_t src) {
     int64_t const mask = src >> ((sizeof(int) * 8) - 1);
     return (src ^ mask) - mask;
 }
 
-const char* ud_insn_hex_sig(struct ud* u, enum ud_match_lvl match_lvl)
-{
-    uint8_t i, j;
-    size_t insn_len;
-    char* src_hex = (char*)u->insn_hexcode;
-    ud_insn_hex(u);
-    if (match_lvl == UD_MATCH_ALL) return src_hex;
-    if (match_lvl == UD_MATCH_NONE) {
-        insn_len = ud_insn_len(u);
-        for (i = 0, j = 0; j < insn_len; i += 3, j++) {
-            src_hex[i] = '?'; src_hex[i + 1] = '?';
-        }
-        return src_hex;
-    }
-    if (u->have_modrm) {
-        if (match_lvl < UD_MATCH_MID || (match_lvl < UD_MATCH_HIGH && !u->modrm_stb)) {
-            i = u->modrm_offset * 3;
-            src_hex[i] = '?';
-            src_hex[i + 1] = '?';
-        }
-    }
-    if (u->have_sib && match_lvl < UD_MATCH_HIGH) {
-        i = u->sib_offset * 3;
-        src_hex[i] = '?';
-        src_hex[i + 1] = '?';
-    }
-    if (u->have_disp) {
-        if (ud_abs(u->disp) > u->match_disp_threshold || match_lvl < UD_MATCH_MID) {
-            for (i = u->disp_offset * 3, j = 0; j < u->disp_size; i += 3, j++) {
-                src_hex[i] = '?'; src_hex[i + 1] = '?';
-            }
-        }
-    }
-    if (u->have_imm) {
-        if (ud_abs(u->imm) > u->match_imm_threshold || match_lvl < UD_MATCH_MID) {
-            for (i = u->imm_offset * 3, j = 0; j < u->imm_size; i += 3, j++) {
-                src_hex[i] = '?'; src_hex[i + 1] = '?';
-            }
-        }
-    }
-
-    return src_hex;
+size_t udx_rnd(size_t a, size_t b) {
+    return a + (rand() % (b + 1));
 }
 
-
 void udx_init(udx_t* udx, uint8_t* mem_buffer, size_t mem_buffer_size, size_t load_base, uint8_t mode) {
-    srand((size_t)time(0)); 
     ud_init(&udx->ud);
     ud_set_mode(&udx->ud, mode);
     udx->load_base = load_base;
@@ -62,40 +20,101 @@ void udx_init(udx_t* udx, uint8_t* mem_buffer, size_t mem_buffer_size, size_t lo
     udx->mem_buffer_size = mem_buffer_size;
 }
 
-size_t udx_gen_sig(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size, size_t insn_size, enum ud_match_lvl match_lvl) {
+size_t udx_blk_gen_sig(struct udx_blk* blk, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t match_lvl)
+{
+    uint8_t i, j;
+    char* origin_sig_buffer = sig_buffer; 
+    size_t sig_length = 0;
+     
+    for (i = 0; i < blk->insn_length; i++) {
+        if (sig_buffer_size < 3 + 1) return 0;
+        sprintf_s(sig_buffer, sig_buffer_size, "%02X ", blk->insn_bytes[i]);
+        sig_buffer += 3;
+        sig_buffer_size -= 3;
+    } 
+    sig_length = sig_buffer - origin_sig_buffer;
+    sig_buffer = origin_sig_buffer;
+    
+    if (match_lvl == UD_MATCH_ALL) return sig_length;
+    if (match_lvl == UD_MATCH_NONE) {
+        for (i = 0, j = 0; j < blk->insn_length; i += 3, j++) {
+            sig_buffer[i] = '?'; sig_buffer[i + 1] = '?';
+        }
+        return sig_length;
+    }
+    if (blk->have_modrm) {
+        if (match_lvl < UD_MATCH_MID || (match_lvl < UD_MATCH_HIGH && !blk->modrm_stb)) {
+            i = blk->modrm_offset * 3;
+            sig_buffer[i] = '?';
+            sig_buffer[i + 1] = '?';
+        }
+    }
+    if (blk->have_sib && match_lvl < UD_MATCH_HIGH) {
+        i = blk->sib_offset * 3;
+        sig_buffer[i] = '?';
+        sig_buffer[i + 1] = '?';
+    }
+    if (blk->have_disp) {
+        if (udx_abs(blk->disp) > disp_threshold || match_lvl < UD_MATCH_MID) {
+            for (i = blk->disp_offset * 3, j = 0; j < blk->disp_size; i += 3, j++) {
+                sig_buffer[i] = '?'; sig_buffer[i + 1] = '?';
+            }
+        }
+    }
+    if (blk->have_imm) {
+        if (udx_abs(blk->imm) > imm_threshold || match_lvl < UD_MATCH_MID) {
+            for (i = blk->imm_offset * 3, j = 0; j < blk->imm_size; i += 3, j++) {
+                sig_buffer[i] = '?'; sig_buffer[i + 1] = '?';
+            }
+        }
+    }
+
+    return sig_length;
+}
+
+size_t udx_blks_gen_sig(struct udx_blk* blks, size_t blks_size, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t match_lvl)
+{
+    size_t sig_length = 0, blk_sig_length;
+    for (size_t i = 0; i < blks_size; i++) {
+        blk_sig_length = udx_blk_gen_sig(blks + i, sig_buffer, sig_buffer_size, disp_threshold, imm_threshold, match_lvl);
+        if (!blk_sig_length) return 0;
+        sig_buffer += blk_sig_length;
+        sig_buffer_size -= blk_sig_length;
+        sig_length += blk_sig_length;
+    }
+    return sig_length;
+     
+}
+
+size_t udx_gen_sig(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size, size_t insn_size, size_t match_lvl) {
     ud_set_input_buffer(&udx->ud, udx->mem_buffer, udx->mem_buffer_size);
     ud_input_skip(&udx->ud, target_addr - udx->load_base);
     ud_set_pc(&udx->ud, target_addr);
-    memset(sig_buffer, 0, sig_buffer_size);
-    size_t insn_size_readed = 0, insn_sig_size, sig_size = 0;
-    const char* insn_sig;
+
+    size_t insn_sig_size, sig_size = 0, insn_size_readed = 0;
     while (ud_disassemble(&udx->ud)) {
-        insn_sig = ud_insn_hex_sig(&udx->ud, match_lvl);
-        insn_sig_size = strlen(insn_sig);
-        if (strcat_s(sig_buffer, sig_buffer_size, insn_sig)) return 0;
-        sig_size += insn_sig_size;
+        insn_sig_size = ud_gen_sig(&udx->ud, sig_buffer, sig_buffer_size, match_lvl);
+        if (!insn_sig_size) return 0;
         sig_buffer += insn_sig_size;
         sig_buffer_size -= insn_sig_size;
+        sig_size += insn_sig_size;
         if (++insn_size_readed >= insn_size) break;
     }
     return sig_size;
 }
 
-size_t udx_gen_sig_rnd(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size) {
+size_t udx_gen_sig_rnd(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size, size_t insn_size) {
     ud_set_input_buffer(&udx->ud, udx->mem_buffer, udx->mem_buffer_size);
     ud_input_skip(&udx->ud, target_addr - udx->load_base);
     ud_set_pc(&udx->ud, target_addr);
-    memset(sig_buffer, 0, sig_buffer_size);
-    size_t insn_size_readed = 0, insn_sig_size, sig_size = 0, insn_size = 5 + rand() % (15 + 1);
-    const char* insn_sig;
+
+    size_t insn_sig_size, sig_size = 0, insn_size_readed = 0;
     while (ud_disassemble(&udx->ud)) {
-        insn_sig = ud_insn_hex_sig(&udx->ud, (ud_match_lvl_t)(rand() % UD_MATCH_ALL));
-        insn_sig_size = strlen(insn_sig);
-        if (insn_sig_size > sig_buffer_size) break;
-        if (strcat_s(sig_buffer, sig_buffer_size, insn_sig)) break;
-        sig_size += insn_sig_size;
+        insn_sig_size = ud_gen_sig(&udx->ud, sig_buffer, sig_buffer_size, udx_rnd(UD_MATCH_LOW, UD_MATCH_HIGH));
+        if (!insn_sig_size) return 0;
         sig_buffer += insn_sig_size;
         sig_buffer_size -= insn_sig_size;
+        sig_size += insn_sig_size;
         if (++insn_size_readed >= insn_size) break;
     }
     return sig_size;
@@ -134,4 +153,14 @@ size_t udx_scan_sig(udx_t* udx, char* sig_buffer, size_t sig_buffer_size, size_t
     }
 
     return ret_size;
+}
+
+size_t udx_gen_blks(udx_t* udx, size_t target_addr, struct udx_blk* blks_buffer, size_t blks_buffer_size) {
+    
+
+}
+
+size_t ud_gen_sig(struct ud* u, char* sig_buffer, size_t sig_buffer_size, size_t match_lvl)
+{
+    return udx_blk_gen_sig(&u->blk, sig_buffer, sig_buffer_size, DEF_THRESHOLD_DISP, DEF_THRESHOLD_IMM, match_lvl);
 }

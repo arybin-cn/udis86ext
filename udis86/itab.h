@@ -21,7 +21,7 @@ enum ud_table_type {
     UD_TAB__OPC_VENDOR
 };
 
-/* ud_mnemonic -- mnemonic constants */
+/* ud_mnemonic -- insn_mnemonic constants */
 enum ud_mnemonic_code {
     UD_Iaaa,
     UD_Iaad,

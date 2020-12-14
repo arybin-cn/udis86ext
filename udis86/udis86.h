@@ -23,6 +23,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS 
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #ifndef UDIS86_H
 #define UDIS86_H
 
@@ -39,7 +40,15 @@ extern "C" {
 * =============================================================================
 */
 
+#define UD_MATCH_NONE 0
+#define UD_MATCH_LOW 1
+#define UD_MATCH_MID 2
+#define UD_MATCH_HIGH 3
+#define UD_MATCH_ALL 4
+
 #define SIG_WILDCARD 0xFFFF
+#define DEF_THRESHOLD_DISP 0x50
+#define DEF_THRESHOLD_IMM 0x100
 
 typedef struct {
     ud_t ud;
@@ -47,12 +56,17 @@ typedef struct {
     size_t mem_buffer_size;
     size_t load_base;
 }udx_t;
+ 
+uint64_t udx_abs(int64_t src);
+size_t udx_rnd(size_t a, size_t b);
+void udx_init(udx_t* udx, uint8_t* mem_buffer, size_t mem_buffer_size, size_t load_base, uint8_t mode);
+size_t udx_blk_gen_sig(struct udx_blk* blk, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t match_lvl);
+size_t udx_blks_gen_sig(struct udx_blk* blks, size_t blks_size, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t match_lvl);
+size_t udx_gen_sig(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size, size_t insn_size, size_t match_lvl);
+size_t udx_gen_sig_rnd(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size, size_t insn_size);
+size_t udx_scan_sig(udx_t* udx, char* sig_buffer, size_t sig_buffer_size, size_t* ret_buffer, size_t ret_buffer_size);
 
-extern const char* ud_insn_hex_sig(struct ud* u, enum ud_match_lvl match_lvl);
-
-extern void udx_init(udx_t* udx, uint8_t* mem_buffer, size_t mem_buffer_size, size_t load_base, uint8_t mode);
-extern size_t udx_gen_sig(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size, size_t insn_size, enum ud_match_lvl match_lvl);
-extern size_t udx_gen_sig_rnd(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size);
+size_t ud_gen_sig(struct ud* u, char* sig_buffer, size_t sig_buffer_size, size_t match_lvl);
 
 #ifdef __cplusplus
 }

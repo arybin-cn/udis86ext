@@ -161,7 +161,7 @@ ud_translate_intel(struct ud* u)
     ud_asmprintf(u, "repne ");
   }
 
-  /* print the instruction mnemonic */
+  /* print the instruction insn_mnemonic */
   ud_asmprintf(u, "%s", ud_lookup_mnemonic(u->mnemonic));
 
   if (u->operand[0].type != UD_NONE) {

@@ -51,9 +51,6 @@
 # define UD_ATTR_PACKED
 #endif /* UD_ATTR_PACKED */
 
-enum ud_match_lvl {
-    UD_MATCH_NONE, UD_MATCH_LOW, UD_MATCH_MID, UD_MATCH_HIGH, UD_MATCH_ALL
-};
 /* -----------------------------------------------------------------------------
  * All possible "types" of objects in udis86. Order is Important!
  * -----------------------------------------------------------------------------
@@ -167,6 +164,37 @@ struct ud_operand {
 };
 
 /* -----------------------------------------------------------------------------
+ * struct udx_blk
+ * simple encodede information about insn for convenience
+ * -----------------------------------------------------------------------------
+ */
+typedef struct udx_blk {
+    enum ud_mnemonic_code insn_mnemonic;
+    uint64_t insn_addr;
+    uint8_t insn_length;
+    uint8_t insn_bytes[32];
+
+    uint8_t   have_modrm;
+    uint8_t   modrm_offset;
+    uint8_t   modrm;
+    uint8_t   modrm_stb; //mark whether stable modrm or not (reckon [?bp+?] or [?sp+?] or [disp] stable)
+
+    uint8_t   have_sib;
+    uint8_t   sib_offset;
+    uint8_t   sib;
+
+    uint8_t   have_disp;
+    uint8_t   disp_offset;
+    uint8_t   disp_size;
+    int64_t   disp;
+
+    uint8_t   have_imm;
+    uint8_t   imm_offset;
+    uint8_t   imm_size;
+    int64_t   imm;
+}udx_blk_t;
+
+/* -----------------------------------------------------------------------------
  * struct ud - The udis86 object.
  * -----------------------------------------------------------------------------
  */
@@ -201,12 +229,6 @@ struct ud
     char      asm_buf_int[128];
 
     /*
-     * Fuzzy signature use
-     */
-    uint64_t match_disp_threshold;
-    uint64_t match_imm_threshold;
-
-    /*
      * Symbol resolver for use in the translation phase.
      */
     const char* (*sym_resolver)(struct ud*, uint64_t addr, int64_t* offset);
@@ -231,26 +253,6 @@ struct ud
     uint8_t   adr_mode;
     uint8_t   br_far;
     uint8_t   br_near;
-
-    uint8_t   have_modrm;
-    uint8_t   modrm_offset;
-    uint8_t   modrm;
-    uint8_t   modrm_stb; //stable modrm, mark whether [?bp+?] or [?sp+?] or [disp]
-
-    uint8_t   have_sib;
-    uint8_t   sib_offset;
-    uint8_t   sib;
-
-    uint8_t   have_disp;
-    uint8_t   disp_offset;
-    uint8_t   disp_size;
-    int64_t   disp;
-
-    uint8_t   have_imm;
-    uint8_t   imm_offset;
-    uint8_t   imm_size;
-    int64_t   imm;
-
     uint8_t   vex_op;
     uint8_t   vex_b1;
     uint8_t   vex_b2;
@@ -258,6 +260,7 @@ struct ud
     void* user_opaque_data;
     struct ud_itab_entry* itab_entry;
     struct ud_lookup_table_list_entry* le;
+    struct udx_blk blk;
 };
 
 /* -----------------------------------------------------------------------------

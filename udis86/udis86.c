@@ -24,18 +24,12 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <string.h>
 #include "udint.h"
 #include "extern.h"
-#include "decode.h"
-
-#if !defined(__UD_STANDALONE__)
-# if HAVE_STRING_H
-#  include <string.h>
-# endif
-#endif /* !__UD_STANDALONE__ */
+#include "decode.h" 
 
 static void ud_inp_init(struct ud* u);
-
 /* =============================================================================
  * ud_init
  *    Initializes ud_t object.
@@ -44,8 +38,8 @@ static void ud_inp_init(struct ud* u);
 extern void
 ud_init(struct ud* u)
 {  
-    uint32_t* pu = (uint32_t*)u;
-    for (size_t i = 0; i < sizeof(ud_t) / 4; i++) pu[i] = 0;
+    
+    memset(u, 0, sizeof(struct ud));
     ud_set_mode(u, 32);
     u->mnemonic = UD_Iinvalid;
     ud_set_pc(u, 0);
@@ -53,8 +47,6 @@ ud_init(struct ud* u)
     ud_set_input_file(u, stdin);
 #endif /* __UD_STANDALONE__ */
     ud_set_asm_buffer(u, u->asm_buf_int, sizeof(u->asm_buf_int));
-    u->match_disp_threshold = 0x50;
-    u->match_imm_threshold = 0x100;
 }
 
 
@@ -76,6 +68,10 @@ ud_disassemble(struct ud* u)
             u->asm_buf[0] = '\0';
             u->translator(u);
         }
+        u->blk.insn_mnemonic = u->mnemonic;
+        u->blk.insn_addr = u->insn_offset;
+        u->blk.insn_length = u->inp_ctr;
+        memcpy_s(u->blk.insn_bytes, sizeof(u->blk.insn_bytes), ud_insn_ptr(u), u->inp_ctr);
     }
     return len;
 }
@@ -172,10 +168,11 @@ ud_insn_hex(struct ud* u)
         size_t hex_buf_len = sizeof(u->insn_hexcode);
         size_t insn_len = ud_insn_len(u);
         /* for each byte used to decode instruction */
-        for (i = 0; i < insn_len && i < sizeof(u->insn_hexcode) / 3; ++i, ++src_ptr) {
-            sprintf_s(src_hex, hex_buf_len, "%02X ", *src_ptr & 0xFF);
-            src_hex += 3;
-            hex_buf_len -= 3;
+        for (i = 0; i < insn_len && i < sizeof(u->insn_hexcode) / 2; ++i, ++src_ptr) {
+            sprintf_s(src_hex, hex_buf_len, "%02X", *src_ptr & 0xFF);
+            src_hex += 2;
+            hex_buf_len -= 2;
+            if (hex_buf_len < 2 + 1) break;
         }
     }
     return u->insn_hexcode;
@@ -319,7 +316,7 @@ ud_set_sym_resolver(struct ud* u, const char* (*resolver)(struct ud*,
 
 /* =============================================================================
  * ud_insn_mnemonic
- *    Return the current instruction mnemonic.
+ *    Return the current instruction insn_mnemonic.
  * =============================================================================
  */
 enum ud_mnemonic_code
@@ -331,8 +328,8 @@ enum ud_mnemonic_code
 
 /* =============================================================================
  * ud_lookup_mnemonic
- *    Looks up mnemonic code in the mnemonic string table.
- *    Returns NULL if the mnemonic code is invalid.
+ *    Looks up insn_mnemonic code in the insn_mnemonic string table.
+ *    Returns NULL if the insn_mnemonic code is invalid.
  * =============================================================================
  */
 const char*

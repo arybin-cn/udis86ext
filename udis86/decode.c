@@ -318,12 +318,12 @@ vex_w(const struct ud* u)
 static UD_INLINE uint8_t
 modrm(struct ud* u)
 {
-    if (!u->have_modrm) {
-        u->modrm = inp_next(u);
-        u->modrm_offset = (uint8_t)(u->inp_ctr - 1);
-        u->have_modrm = 1;
+    if (!u->blk.have_modrm) {
+        u->blk.modrm = inp_next(u);
+        u->blk.modrm_offset = (uint8_t)(u->inp_ctr - 1);
+        u->blk.have_modrm = 1;
     }
-    return u->modrm;
+    return u->blk.modrm;
 }
 
 
@@ -487,26 +487,26 @@ decode_imm(struct ud* u, unsigned int size, struct ud_operand* op)
     switch (op->size) {
     case  8:
         op->lval.sbyte = inp_uint8(u);
-        u->imm = op->lval.sbyte;
+        u->blk.imm = op->lval.sbyte;
         break;
     case 16:
         op->lval.uword = inp_uint16(u);
-        u->imm = op->lval.sword;
+        u->blk.imm = op->lval.sword;
         break;
     case 32:
         op->lval.udword = inp_uint32(u);
-        u->imm = op->lval.sdword;
+        u->blk.imm = op->lval.sdword;
         break;
     case 64:
         op->lval.uqword = inp_uint64(u);
-        u->imm = op->lval.sqword;
+        u->blk.imm = op->lval.sqword;
         break;
     default:
         return;
     }
-    u->have_imm = 1;
-    u->imm_size = op->size / 8;
-    u->imm_offset = u->inp_ctr - u->imm_size;
+    u->blk.have_imm = 1;
+    u->blk.imm_size = op->size / 8;
+    u->blk.imm_offset = u->inp_ctr - u->blk.imm_size;
 }
 
 
@@ -522,29 +522,29 @@ decode_mem_disp(struct ud* u, unsigned int size, struct ud_operand* op)
     case 8:
         op->offset = 8;
         op->lval.ubyte = inp_uint8(u);
-        u->disp = (int64_t)op->lval.sbyte;
+        u->blk.disp = (int64_t)op->lval.sbyte;
         break;
     case 16:
         op->offset = 16;
         op->lval.uword = inp_uint16(u);
-        u->disp = (int64_t)op->lval.sword;
+        u->blk.disp = (int64_t)op->lval.sword;
         break;
     case 32:
         op->offset = 32;
         op->lval.udword = inp_uint32(u);
-        u->disp = (int64_t)op->lval.sdword;
+        u->blk.disp = (int64_t)op->lval.sdword;
         break;
     case 64:
         op->offset = 64;
         op->lval.uqword = inp_uint64(u);
-        u->disp = (int64_t)op->lval.sqword;
+        u->blk.disp = (int64_t)op->lval.sqword;
         break;
     default:
         return;
     }
-    u->have_disp = 1;
-    u->disp_size = size / 8;
-    u->disp_offset = u->inp_ctr - u->disp_size;
+    u->blk.have_disp = 1;
+    u->blk.disp_size = size / 8;
+    u->blk.disp_offset = u->inp_ctr - u->blk.disp_size;
 }
 
 
@@ -620,9 +620,9 @@ decode_modrm_rm(struct ud* u,
          */
         if ((rm & 7) == 4) {
             inp_next(u);
-            u->have_sib = 1;
-            u->sib_offset = u->inp_ctr - 1;
-            u->sib = inp_curr(u);
+            u->blk.have_sib = 1;
+            u->blk.sib_offset = u->inp_ctr - 1;
+            u->blk.sib = inp_curr(u);
             op->base = UD_R_RAX + (SIB_B(inp_curr(u)) | (REX_B(u->_rex) << 3));
             op->index = UD_R_RAX + (SIB_I(inp_curr(u)) | (REX_X(u->_rex) << 3));
             /* special conditions for base reference */
@@ -670,9 +670,9 @@ decode_modrm_rm(struct ud* u,
         /* Scale-Index-Base (SIB) */
         if ((rm & 7) == 4) {
             inp_next(u);
-            u->have_sib = 1;
-            u->sib_offset = u->inp_ctr - 1;
-            u->sib = inp_curr(u);
+            u->blk.have_sib = 1;
+            u->blk.sib_offset = u->inp_ctr - 1;
+            u->blk.sib = inp_curr(u);
 
             op->scale = (1 << SIB_S(inp_curr(u))) & ~1;
             op->index = UD_R_EAX + (SIB_I(inp_curr(u)) | (REX_X(u->pfx_rex) << 3));
@@ -721,7 +721,7 @@ decode_modrm_rm(struct ud* u,
         }
     }
 
-    u->modrm_stb = (op->base == UD_NONE || op->base == UD_R_BP || op->base == UD_R_EBP || op->base == UD_R_RBP ||
+    u->blk.modrm_stb = (op->base == UD_NONE || op->base == UD_R_BP || op->base == UD_R_EBP || op->base == UD_R_RBP ||
         op->base == UD_R_SP || op->base == UD_R_ESP || op->base == UD_R_RSP);
     if (offset) {
         decode_mem_disp(u, offset, op);
@@ -745,7 +745,7 @@ decode_moffset(struct ud* u, unsigned int size, struct ud_operand* opr)
     opr->scale = UD_NONE;
     opr->size = resolve_operand_size(u, size);
     decode_mem_disp(u, u->adr_mode, opr);
-    u->modrm_stb = 1;
+    u->blk.modrm_stb = 1;
 }
 
 
@@ -994,11 +994,11 @@ clear_insn(register struct ud* u)
     u->pfx_str = 0;
     u->mnemonic = UD_Inone;
     u->itab_entry = NULL;
-    u->have_modrm = 0;
-    u->modrm_stb = 0;
-    u->have_sib = 0;
-    u->have_disp = 0;
-    u->have_imm = 0;
+    u->blk.have_modrm = 0;
+    u->blk.modrm_stb = 0;
+    u->blk.have_sib = 0;
+    u->blk.have_disp = 0;
+    u->blk.have_imm = 0;
     u->br_far = 0;
     u->vex_op = 0;
     u->_rex = 0;
