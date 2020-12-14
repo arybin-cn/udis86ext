@@ -9,7 +9,7 @@ uint64_t udx_abs(int64_t src) {
 }
 
 size_t udx_rnd(size_t a, size_t b) {
-    return a + (rand() % (b + 1));
+    return a + (rand() % (b - a + 1));
 }
 
 void udx_init(udx_t* udx, uint8_t* mem_buffer, size_t mem_buffer_size, size_t load_base, uint8_t mode) {
