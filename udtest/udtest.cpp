@@ -4,6 +4,8 @@
 #include <time.h>
 #include <stdlib.h>
 #include <cstdint>
+
+
  
 int main()
 {
@@ -38,25 +40,51 @@ int main()
     udx_t udx_new;
     udx_init(&udx_new, buffer_new, file_size_new, 0x400000, 32);
 
+    udx_blk_t blks[20];
+    char sig[1024];
 
-    char sig[2048]; 
+    size_t ret = udx_gen_blks(&udx_old, 0x01954660, blks, sizeof(blks));
+    printf("%d udx_blks generated!\n", ret);
+    for (size_t i = 0; i < ret; i++)
+    {
+        udx_blk_gen_sig(blks + i, sig, sizeof(sig), 0x50, 0x100, UD_MATCH_ALL);
+        printf("(%d) %s\n", i + 1, sig);
+    }
+
+    size_t sig_count = 300000;
+    clock_t st = clock();
+    for (size_t i = 0; i < sig_count; i++)
+    {
+        size_t rnd_addr = 0x400000 + ((rand() % file_size_old) << 10);
+        udx_gen_sig_rnd(&udx_old, rnd_addr, sig, sizeof(sig), udx_rnd(5, 10));
+        //udx_blks_gen_sig_rnd(blks, sizeof(blks), sig, sizeof(sig), 0x50, 0x100); 
+    }
+    clock_t et = clock();
+    double time_elapsed = (double)(et - st) / CLOCKS_PER_SEC;
+    printf("Completed! Time elapsed: %.3fs, speed: %.3fsig/s", time_elapsed, sig_count / time_elapsed);
+
+
+ /*   char sig[2048]; 
     size_t addrs[256];
     size_t ret = 0;
 
     for (size_t j = 0; j < 100; j++)
     {
-        size_t sig_size = udx_gen_sig_rnd(&udx_old, 0x1389C70, sig, sizeof(sig), udx_rnd(5, 30));
-        printf("%s\n", sig);
-        ret = udx_scan_sig(&udx_old, sig, sig_size, addrs, sizeof(addrs) / sizeof(size_t));
-        printf("%d results:\n", ret);
-        ret = udx_scan_sig(&udx_new, sig, sig_size, addrs, sizeof(addrs) / sizeof(size_t));
-        printf("%d results:\n", ret); 
-        //for (size_t i = 0; i < ret; i++)
-        //{
-        //    printf("(%d) %08X ", i + 1, addrs[i]);
-        //}
         printf("\n**************************************************************************\n");
-    }
+        size_t sig_size = udx_gen_sig_rnd(&udx_old, 0x01954660, sig, sizeof(sig), udx_rnd(5, 50));
+        printf("%s\n", sig);
+        ret = udx_scan_sig(&udx_new, sig, sig_size, addrs, sizeof(addrs) / sizeof(size_t));
+        printf("%d results in new dump\n", ret);
+        if (ret == sizeof(addrs) / sizeof(size_t) || ret == 0) continue;
+        ret = udx_scan_sig(&udx_old, sig, sig_size, addrs, sizeof(addrs) / sizeof(size_t));
+        printf("%d results in old dump\n", ret);
+
+        for (size_t i = 0; i < ret; i++)
+        {
+            printf("(%d) %08X ", i + 1, addrs[i]);
+        } 
+        break;
+    }*/
 
     free(buffer_old);
     free(buffer_new);

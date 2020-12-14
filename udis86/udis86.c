@@ -316,7 +316,7 @@ ud_set_sym_resolver(struct ud* u, const char* (*resolver)(struct ud*,
 
 /* =============================================================================
  * ud_insn_mnemonic
- *    Return the current instruction insn_mnemonic.
+ *    Return the current instruction mnemonic.
  * =============================================================================
  */
 enum ud_mnemonic_code
@@ -328,8 +328,8 @@ enum ud_mnemonic_code
 
 /* =============================================================================
  * ud_lookup_mnemonic
- *    Looks up insn_mnemonic code in the insn_mnemonic string table.
- *    Returns NULL if the insn_mnemonic code is invalid.
+ *    Looks up mnemonic code in the mnemonic string table.
+ *    Returns NULL if the mnemonic code is invalid.
  * =============================================================================
  */
 const char*

@@ -1,7 +1,7 @@
 #include <stdlib.h>
+#include <string.h>
+
 #include "udis86.h" 
-
-
 
 uint64_t udx_abs(int64_t src) {
     int64_t const mask = src >> ((sizeof(int) * 8) - 1);
@@ -86,11 +86,25 @@ size_t udx_blks_gen_sig(struct udx_blk* blks, size_t blks_size, char* sig_buffer
      
 }
 
+size_t udx_blks_gen_sig_rnd(struct udx_blk* blks, size_t blks_size, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold)
+{
+    size_t insns_size = blks_size / sizeof(struct udx_blk);
+    size_t sig_length = 0, blk_sig_length;
+    for (size_t i = 0; i < insns_size; i++) {
+        blk_sig_length = udx_blk_gen_sig(blks + i, sig_buffer, sig_buffer_size, disp_threshold, imm_threshold, udx_rnd(UD_MATCH_NONE, UD_MATCH_HIGH));
+        if (!blk_sig_length) return 0;
+        sig_buffer += blk_sig_length;
+        sig_buffer_size -= blk_sig_length;
+        sig_length += blk_sig_length;
+    }
+    return sig_length;
+
+}
+
 size_t udx_gen_sig(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size, size_t insn_size, size_t match_lvl) {
     ud_set_input_buffer(&udx->ud, udx->mem_buffer, udx->mem_buffer_size);
     ud_input_skip(&udx->ud, target_addr - udx->load_base);
     ud_set_pc(&udx->ud, target_addr);
-
     size_t insn_sig_size, sig_size = 0, insn_size_readed = 0;
     while (ud_disassemble(&udx->ud)) {
         insn_sig_size = ud_gen_sig(&udx->ud, sig_buffer, sig_buffer_size, match_lvl);
@@ -155,10 +169,19 @@ size_t udx_scan_sig(udx_t* udx, char* sig_buffer, size_t sig_buffer_size, size_t
     return ret_size;
 }
 
-size_t udx_gen_blks(udx_t* udx, size_t target_addr, struct udx_blk* blks_buffer, size_t blks_buffer_size) {
-    
-
+size_t udx_gen_blks(udx_t* udx, size_t target_addr, struct udx_blk* blks_buffer, size_t blks_size) {
+    size_t insns_size = blks_size / sizeof(struct udx_blk), blks_size_generated = 0;
+    ud_set_input_buffer(&udx->ud, udx->mem_buffer, udx->mem_buffer_size);
+    ud_input_skip(&udx->ud, target_addr - udx->load_base);
+    ud_set_pc(&udx->ud, target_addr);
+    while (ud_disassemble(&udx->ud)) {
+        if (insns_size-- <= 0) break;
+        memcpy_s(blks_buffer++, sizeof(struct udx_blk), &udx->ud.blk, sizeof(struct udx_blk));
+        blks_size_generated++;
+    } 
+    return blks_size_generated;
 }
+
 
 size_t ud_gen_sig(struct ud* u, char* sig_buffer, size_t sig_buffer_size, size_t match_lvl)
 {
