@@ -20,10 +20,6 @@ void udx_init(udx_t* udx, uint8_t* mem_buffer, size_t mem_buffer_size, size_t lo
     udx->mem_buffer_size = mem_buffer_size;
 }
 
-size_t udx_valid_addr(udx_t* udx, size_t addr) {
-    return !(addr < udx->load_base || addr > (udx->load_base + udx->mem_buffer_size));
-}
-
 size_t udx_blk_gen_sig(struct udx_blk* blk, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t match_lvl)
 {
     uint8_t i, j;
@@ -106,7 +102,6 @@ size_t udx_blks_gen_sig_rnd(struct udx_blk* blks, size_t blks_size, char* sig_bu
 }
 
 size_t udx_gen_sig(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size, size_t insn_size, size_t match_lvl) {
-    if (!udx_valid_addr(udx, target_addr)) return 0;
     ud_set_input_buffer(&udx->ud, udx->mem_buffer, udx->mem_buffer_size);
     ud_input_skip(&udx->ud, target_addr - udx->load_base);
     ud_set_pc(&udx->ud, target_addr);
@@ -123,7 +118,6 @@ size_t udx_gen_sig(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_
 }
 
 size_t udx_gen_sig_rnd(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size, size_t insn_size) {
-    if (!udx_valid_addr(udx, target_addr)) return 0;
     ud_set_input_buffer(&udx->ud, udx->mem_buffer, udx->mem_buffer_size);
     ud_input_skip(&udx->ud, target_addr - udx->load_base);
     ud_set_pc(&udx->ud, target_addr);
@@ -175,23 +169,38 @@ size_t udx_scan_sig(udx_t* udx, char* sig_buffer, size_t sig_buffer_size, size_t
     return ret_size;
 }
 
-size_t udx_gen_blks(udx_t* udx, size_t target_addr, struct udx_blk* blks_buffer, size_t blks_size) {
-    if (!udx_valid_addr(udx, target_addr)) return 0;
+size_t udx_gen_blks(udx_t* udx, size_t target_addr, udx_blk_t** pblks, size_t insns_count, size_t skip_count) {
+    size_t blks_count_generated = 0;
+    udx_blk_t* blks = (udx_blk_t*)malloc(insns_count * sizeof(udx_blk_t));
+    if (!blks) return 0;
+    *pblks = blks;
     ud_set_input_buffer(&udx->ud, udx->mem_buffer, udx->mem_buffer_size);
     ud_input_skip(&udx->ud, target_addr - udx->load_base);
     ud_set_pc(&udx->ud, target_addr);
-    size_t insns_size = blks_size / sizeof(struct udx_blk), blks_size_generated = 0;
     while (ud_disassemble(&udx->ud)) {
-        if (insns_size-- <= 0) break;
-        memcpy_s(blks_buffer++, sizeof(struct udx_blk), &udx->ud.blk, sizeof(struct udx_blk));
-        blks_size_generated++;
+        if (skip_count > 0 && skip_count--) continue;
+        if (insns_count-- <= 0) break;
+        memcpy_s(blks + (blks_count_generated++), sizeof(struct udx_blk), &udx->ud.blk, sizeof(struct udx_blk));
     } 
-    return blks_size_generated;
+    return blks_count_generated;
+}
+
+#define EXTRA_INSN_RADIUS 5
+#define AVERAGE_INSN_LENGTH 5
+size_t udx_gen_blks_radius(udx_t* udx, size_t target_addr, udx_blk_t** pblks, size_t insns_count_radius) {
+    if (insns_count_radius < 1) return 0;
+    size_t target_addr_start = target_addr - AVERAGE_INSN_LENGTH * (insns_count_radius + EXTRA_INSN_RADIUS), addr_count;
+    while ((addr_count = udx_count_insn(udx, target_addr_start, target_addr)) < insns_count_radius + EXTRA_INSN_RADIUS)
+        target_addr_start -= AVERAGE_INSN_LENGTH * EXTRA_INSN_RADIUS;
+    return udx_gen_blks(udx, target_addr_start, pblks, insns_count_radius * 2 + 1, addr_count - insns_count_radius);
+}
+
+void udx_free_blks(udx_blk_t* blks) {
+    free(blks);
 }
 
 //return number of insns in [start_addr, end_addr)
 size_t udx_count_insn(udx_t* udx, size_t start_addr, size_t end_addr) {
-    if (!udx_valid_addr(udx, start_addr) || !udx_valid_addr(udx, end_addr)) return 0;
     if (start_addr >= end_addr) return 0;
     ud_set_input_buffer(&udx->ud, udx->mem_buffer, udx->mem_buffer_size);
     ud_input_skip(&udx->ud, start_addr - udx->load_base);
@@ -205,10 +214,15 @@ size_t udx_count_insn(udx_t* udx, size_t start_addr, size_t end_addr) {
     return insns_size;
 }
 
-size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, size_t sample_radius, size_t confidence) {
-    size_t blks_size = sizeof(udx_blk_t) * (2 * sample_radius + 1);
-    udx_blk_t* blks = (udx_blk_t*)malloc(blks_size);
-    if (!blks) return 0; 
+size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, size_t sample_insns_radius, size_t confidence) {
+    udx_blk_t* blks;
+    size_t blks_length = udx_gen_blks_radius(udx_src, src_addr, &blks, 20);
+    for (size_t i = 0; i < blks_length; i++)
+    {
+        printf("%08X\n", blks[i].insn_addr);
+    }
+ 
+    udx_free_blks(blks);
     return 0;
 }
 

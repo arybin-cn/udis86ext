@@ -40,7 +40,8 @@ int main()
     udx_t udx_new;
     udx_init(&udx_new, buffer_new, file_size_new, 0x400000, 32);
 
-    printf("%d\n", udx_count_insn(&udx_old, 0x01DE8232, 0x1DE8243));
+    //printf("%d\n", udx_count_insn(&udx_old, 0x01DE8232, 0x1DE8243));
+    udx_migrate(&udx_old, &udx_new, 0x01DE824E, 20, 1);
 
     //udx_blk_t blks[20];
     //char sig[1024];
