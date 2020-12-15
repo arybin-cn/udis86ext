@@ -68,6 +68,8 @@ size_t udx_gen_sig(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_
 size_t udx_gen_sig_rnd(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size, size_t insn_size);
 size_t udx_scan_sig(udx_t* udx, char* sig_buffer, size_t sig_buffer_size, size_t* ret_buffer, size_t ret_buffer_size);
 size_t udx_gen_blks(udx_t* udx, size_t target_addr, struct udx_blk* blks_buffer, size_t blks_size);
+size_t udx_count_insn(udx_t* udx, size_t start_addr, size_t end_addr);
+size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, size_t sample_radius, size_t confidence);
 
 size_t ud_gen_sig(struct ud* u, char* sig_buffer, size_t sig_buffer_size, size_t match_lvl);
 

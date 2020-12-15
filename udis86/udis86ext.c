@@ -177,16 +177,39 @@ size_t udx_scan_sig(udx_t* udx, char* sig_buffer, size_t sig_buffer_size, size_t
 
 size_t udx_gen_blks(udx_t* udx, size_t target_addr, struct udx_blk* blks_buffer, size_t blks_size) {
     if (!udx_valid_addr(udx, target_addr)) return 0;
-    size_t insns_size = blks_size / sizeof(struct udx_blk), blks_size_generated = 0;
     ud_set_input_buffer(&udx->ud, udx->mem_buffer, udx->mem_buffer_size);
     ud_input_skip(&udx->ud, target_addr - udx->load_base);
     ud_set_pc(&udx->ud, target_addr);
+    size_t insns_size = blks_size / sizeof(struct udx_blk), blks_size_generated = 0;
     while (ud_disassemble(&udx->ud)) {
         if (insns_size-- <= 0) break;
         memcpy_s(blks_buffer++, sizeof(struct udx_blk), &udx->ud.blk, sizeof(struct udx_blk));
         blks_size_generated++;
     } 
     return blks_size_generated;
+}
+
+//return number of insns in [start_addr, end_addr)
+size_t udx_count_insn(udx_t* udx, size_t start_addr, size_t end_addr) {
+    if (!udx_valid_addr(udx, start_addr) || !udx_valid_addr(udx, end_addr)) return 0;
+    if (start_addr >= end_addr) return 0;
+    ud_set_input_buffer(&udx->ud, udx->mem_buffer, udx->mem_buffer_size);
+    ud_input_skip(&udx->ud, start_addr - udx->load_base);
+    ud_set_pc(&udx->ud, start_addr);
+    size_t insns_size = 0;
+    while (ud_disassemble(&udx->ud)) {
+        insns_size++;
+        start_addr += ud_insn_len(&udx->ud);
+        if (start_addr >= end_addr) break;
+    }
+    return insns_size;
+}
+
+size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, size_t sample_radius, size_t confidence) {
+    size_t blks_size = sizeof(udx_blk_t) * (2 * sample_radius + 1);
+    udx_blk_t* blks = (udx_blk_t*)malloc(blks_size);
+    if (!blks) return 0; 
+    return 0;
 }
 
 size_t ud_gen_sig(struct ud* u, char* sig_buffer, size_t sig_buffer_size, size_t match_lvl)
