@@ -124,7 +124,7 @@ size_t udx_gen_sig_rnd(udx_t* udx, size_t target_addr, char* sig_buffer, size_t 
 
     size_t insn_sig_size, sig_size = 0, insn_size_readed = 0;
     while (ud_disassemble(&udx->ud)) {
-        insn_sig_size = ud_gen_sig(&udx->ud, sig_buffer, sig_buffer_size, udx_rnd(UD_MATCH_LOW, UD_MATCH_HIGH));
+        insn_sig_size = ud_gen_sig(&udx->ud, sig_buffer, sig_buffer_size, udx_rnd(UD_MATCH_NONE, UD_MATCH_HIGH));
         if (!insn_sig_size) return 0;
         sig_buffer += insn_sig_size;
         sig_buffer_size -= insn_sig_size;
