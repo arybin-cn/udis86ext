@@ -170,7 +170,7 @@ struct ud_operand {
  */
 typedef struct udx_blk {
     enum ud_mnemonic_code insn_mnemonic;
-    uint64_t insn_addr;
+    size_t insn_addr;
     uint8_t insn_length;
     uint8_t insn_bytes[32];
 

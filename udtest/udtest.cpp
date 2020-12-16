@@ -1,12 +1,14 @@
 #include "../udis86/udis86.h"
+#include "../uthash.h" 
 
 #include <string.h>
 #include <time.h>
 #include <stdlib.h>
 #include <cstdint>
 
+#define DUMP_FILE_FROM "..\\Res\\CMS176.1.CEM"
+#define DUMP_FILE_TO "..\\Res\\CMS168.1.CEM"
 
- 
 int main()
 {
     srand((size_t)time(0));
@@ -15,7 +17,7 @@ int main()
     size_t file_size_old, file_size_new, file_size_readed;
     uint8_t* buffer_old, * buffer_new;
 
-    fopen_s(&file, "..\\Res\\CMS176.1.CEM", "rb");
+    fopen_s(&file, DUMP_FILE_FROM, "rb");
     fseek(file, 0, SEEK_END);
     file_size_old = ftell(file);
     printf("Old dump file size: %d bytes\n", file_size_old);
@@ -25,7 +27,7 @@ int main()
     printf("Old dump file readed size: %d bytes\n", file_size_readed);
     fclose(file);
 
-    fopen_s(&file, "..\\Res\\CMS168.1.CEM", "rb");
+    fopen_s(&file, DUMP_FILE_TO, "rb");
     fseek(file, 0, SEEK_END);
     file_size_new = ftell(file);
     printf("New dump file size: %d bytes\n", file_size_new);
@@ -35,63 +37,20 @@ int main()
     printf("New dump file readed size: %d bytes\n", file_size_readed);
     fclose(file);
 
+    printf("Migrate from %s to %s\n", DUMP_FILE_FROM, DUMP_FILE_TO);
+
     udx_t udx_old;
     udx_init(&udx_old, buffer_old, file_size_old, 0x400000, 32);
     udx_t udx_new;
     udx_init(&udx_new, buffer_new, file_size_new, 0x400000, 32);
 
-    //printf("%d\n", udx_count_insn(&udx_old, 0x01DE8232, 0x1DE8243));
-    udx_migrate(&udx_old, &udx_new, 0x01DE824E, 20, 1);
-
-    //udx_blk_t blks[20];
-    //char sig[1024];
-
-    //size_t ret = udx_gen_blks(&udx_old, 0x01954660, blks, sizeof(blks));
-    //printf("%d udx_blks generated!\n", ret);
-    //for (size_t i = 0; i < ret; i++)
-    //{
-    //    udx_blk_gen_sig(blks + i, sig, sizeof(sig), 0x50, 0x100, UD_MATCH_ALL);
-    //    printf("(%d) %s\n", i + 1, sig);
-    //}
-
-    //size_t sig_count = 300000;
-    //clock_t st = clock();
-    //for (size_t i = 0; i < sig_count; i++)
-    //{
-    //    size_t rnd_addr = 0x400000 + ((rand() % file_size_old) << 10);
-    //    udx_gen_sig_rnd(&udx_old, rnd_addr, sig, sizeof(sig), udx_rnd(5, 10));
-    //    //udx_blks_gen_sig_rnd(blks, sizeof(blks), sig, sizeof(sig), 0x50, 0x100); 
-    //}
-    //clock_t et = clock();
-    //double time_elapsed = (double)(et - st) / CLOCKS_PER_SEC;
-    //printf("Completed! Time elapsed: %.3fs, speed: %.3fsig/s", time_elapsed, sig_count / time_elapsed);
-
-
- /*   char sig[2048]; 
-    size_t addrs[256];
-    size_t ret = 0;
-
-    for (size_t j = 0; j < 100; j++)
-    {
-        printf("\n**************************************************************************\n");
-        size_t sig_size = udx_gen_sig_rnd(&udx_old, 0x01954660, sig, sizeof(sig), udx_rnd(5, 50));
-        printf("%s\n", sig);
-        ret = udx_scan_sig(&udx_new, sig, sig_size, addrs, sizeof(addrs) / sizeof(size_t));
-        printf("%d results in new dump\n", ret);
-        if (ret == sizeof(addrs) / sizeof(size_t) || ret == 0) continue;
-        ret = udx_scan_sig(&udx_old, sig, sig_size, addrs, sizeof(addrs) / sizeof(size_t));
-        printf("%d results in old dump\n", ret);
-
-        for (size_t i = 0; i < ret; i++)
-        {
-            printf("(%d) %08X ", i + 1, addrs[i]);
-        } 
-        break;
-    }*/
-
+    size_t dst_addr = udx_migrate(&udx_old, &udx_new, 0x01DE824E, 100, 5);
+    if (dst_addr) {
+        printf("Found: %08X\n", dst_addr);
+    }
     free(buffer_old);
     free(buffer_new);
- 
+
 
     /*uint8_t data[] =
     {
@@ -106,8 +65,8 @@ int main()
     size_t sig_length = 0;
 
     ud_t ud_obj;
-    ud_init(&ud_obj); 
-     
+    ud_init(&ud_obj);
+
     ud_set_input_buffer(&ud_obj, data, sizeof(data));
     ud_set_mode(&ud_obj, 32);
     ud_set_syntax(&ud_obj, UD_SYN_INTEL);

@@ -1,3 +1,4 @@
+#include "../uthash.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -9,6 +10,7 @@ uint64_t udx_abs(int64_t src) {
 }
 
 size_t udx_rnd(size_t a, size_t b) {
+    if (a >= b) return a;
     return a + (rand() % (b - a + 1));
 }
 
@@ -74,8 +76,9 @@ size_t udx_blk_gen_sig(struct udx_blk* blk, char* sig_buffer, size_t sig_buffer_
 
 size_t udx_blks_gen_sig(struct udx_blk* blks, size_t blks_size, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t match_lvl)
 {
+    size_t insns_size = blks_size / sizeof(struct udx_blk);
     size_t sig_length = 0, blk_sig_length;
-    for (size_t i = 0; i < blks_size; i++) {
+    for (size_t i = 0; i < insns_size; i++) {
         blk_sig_length = udx_blk_gen_sig(blks + i, sig_buffer, sig_buffer_size, disp_threshold, imm_threshold, match_lvl);
         if (!blk_sig_length) return 0;
         sig_buffer += blk_sig_length;
@@ -135,9 +138,10 @@ size_t udx_gen_sig_rnd(udx_t* udx, size_t target_addr, char* sig_buffer, size_t 
 }
 
 size_t udx_scan_sig(udx_t* udx, char* sig_buffer, size_t sig_buffer_size, size_t* ret_buffer, size_t ret_buffer_size) {
-    uint16_t real_sig[128] = { 0 };
+    uint16_t real_sig[256] = { 0 };
     uint8_t real_sig_size = 0;
     size_t i, ret_size = 0;
+    ret_buffer_size /= sizeof(size_t);
 
     if (sig_buffer_size / 3 > sizeof(real_sig) / sizeof(uint16_t)) return 0;
 
@@ -170,27 +174,36 @@ size_t udx_scan_sig(udx_t* udx, char* sig_buffer, size_t sig_buffer_size, size_t
 }
 
 size_t udx_gen_blks(udx_t* udx, size_t target_addr, udx_blk_t** pblks, size_t insns_count, size_t skip_count) {
+    if (insns_count < 1) return 0;
+    *pblks = 0;
     size_t blks_count_generated = 0;
     udx_blk_t* blks = (udx_blk_t*)malloc(insns_count * sizeof(udx_blk_t));
     if (!blks) return 0;
-    *pblks = blks;
     ud_set_input_buffer(&udx->ud, udx->mem_buffer, udx->mem_buffer_size);
     ud_input_skip(&udx->ud, target_addr - udx->load_base);
     ud_set_pc(&udx->ud, target_addr);
     while (ud_disassemble(&udx->ud)) {
-        if (skip_count > 0 && skip_count--) continue;
-        if (insns_count-- <= 0) break;
+        if (skip_count > 0) {
+            skip_count--;
+            continue;
+        }
         memcpy_s(blks + (blks_count_generated++), sizeof(struct udx_blk), &udx->ud.blk, sizeof(struct udx_blk));
+        if (blks_count_generated >= insns_count) break;
     } 
+    if (blks_count_generated != insns_count) {
+        udx_free_blks(blks);
+        return 0;
+    }
+    *pblks = blks;
     return blks_count_generated;
 }
 
 #define EXTRA_INSN_RADIUS 5
-#define AVERAGE_INSN_LENGTH 5
+#define AVERAGE_INSN_LENGTH 8
 size_t udx_gen_blks_radius(udx_t* udx, size_t target_addr, udx_blk_t** pblks, size_t insns_count_radius) {
     if (insns_count_radius < 1) return 0;
     size_t target_addr_start = target_addr - AVERAGE_INSN_LENGTH * (insns_count_radius + EXTRA_INSN_RADIUS), addr_count;
-    while ((addr_count = udx_count_insn(udx, target_addr_start, target_addr)) < insns_count_radius + EXTRA_INSN_RADIUS)
+    while ((addr_count = udx_insn_count(udx, target_addr_start, target_addr)) < insns_count_radius + EXTRA_INSN_RADIUS)
         target_addr_start -= AVERAGE_INSN_LENGTH * EXTRA_INSN_RADIUS;
     return udx_gen_blks(udx, target_addr_start, pblks, insns_count_radius * 2 + 1, addr_count - insns_count_radius);
 }
@@ -200,7 +213,7 @@ void udx_free_blks(udx_blk_t* blks) {
 }
 
 //return number of insns in [start_addr, end_addr)
-size_t udx_count_insn(udx_t* udx, size_t start_addr, size_t end_addr) {
+size_t udx_insn_count(udx_t* udx, size_t start_addr, size_t end_addr) {
     if (start_addr >= end_addr) return 0;
     ud_set_input_buffer(&udx->ud, udx->mem_buffer, udx->mem_buffer_size);
     ud_input_skip(&udx->ud, start_addr - udx->load_base);
@@ -214,16 +227,102 @@ size_t udx_count_insn(udx_t* udx, size_t start_addr, size_t end_addr) {
     return insns_size;
 }
 
-size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, size_t sample_insns_radius, size_t confidence) {
-    udx_blk_t* blks;
-    size_t blks_length = udx_gen_blks_radius(udx_src, src_addr, &blks, 20);
-    for (size_t i = 0; i < blks_length; i++)
-    {
-        printf("%08X\n", blks[i].insn_addr);
+ud_mnemonic_code_t udx_insn_mnemonic(udx_t* udx, size_t addr) {
+    ud_mnemonic_code_t mnemonic = 0;
+    ud_set_input_buffer(&udx->ud, udx->mem_buffer, udx->mem_buffer_size);
+    ud_input_skip(&udx->ud, addr - udx->load_base);
+    ud_set_pc(&udx->ud, addr); 
+    if (ud_disassemble(&udx->ud)) {
+        mnemonic = ud_insn_mnemonic(&udx->ud);
     }
- 
+    return mnemonic;
+}
+
+typedef struct {
+    size_t addr;
+    size_t count;
+    UT_hash_handle hh;
+} addr_counter_t;
+
+#define POSSIBLE_ADDR_BUFFER_SIZE 16
+#define CACHE_ADDRS_SIZE 256
+size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, size_t sample_insns_radius, size_t confidence) {
+    if (confidence < 1) return 0;
+    addr_counter_t* possible_addrs = NULL, * possible_addr, * tmp;
+    addr_counter_t possible_addr_buffer[POSSIBLE_ADDR_BUFFER_SIZE]; size_t possible_addr_buffer_length = 0;
+    size_t most_possible_addr = 0, sig_size, sig_length;
+    size_t src_addrs[CACHE_ADDRS_SIZE], src_addrs_size;
+    size_t dst_addrs[CACHE_ADDRS_SIZE], dst_addrs_size;
+    size_t signatures_count = 0;
+    ud_mnemonic_code_t src_addr_mnemonic = udx_insn_mnemonic(udx_src, src_addr);
+
+    udx_blk_t* blks;
+    size_t blks_length = udx_gen_blks_radius(udx_src, src_addr, &blks, sample_insns_radius);
+    if (!blks_length) return 0;
+    do { 
+        sig_size = (blks_length + EXTRA_INSN_RADIUS) * AVERAGE_INSN_LENGTH * 3;
+        char* sig = (char*)malloc(sig_size);
+        if (!sig) break;
+        printf("Migrate started for address: %08X, sample_insns_radius: %d, sig_buffer_size: %d\n", src_addr, sample_insns_radius, sig_size);
+        while (1) {
+            size_t rnd_insns_size = udx_rnd(3, blks_length);
+            size_t rnd_insns_start = udx_rnd(0, blks_length - rnd_insns_size);
+            int32_t src_offset = src_addr - blks[rnd_insns_start].insn_addr;
+            sig_length = udx_blks_gen_sig_rnd(blks + rnd_insns_start, rnd_insns_size*sizeof(udx_blk_t), sig, sig_size, DEF_THRESHOLD_DISP, DEF_THRESHOLD_IMM);
+            if (!sig_length) {
+                printf("Failed to generate signature...(%d, %d, %d)\n", rnd_insns_start, rnd_insns_size, blks_length);
+                continue;
+            }
+            signatures_count++;
+            dst_addrs_size = udx_scan_sig(udx_dst, sig, sig_length, dst_addrs, CACHE_ADDRS_SIZE * sizeof(size_t));
+            if (dst_addrs_size == 0 || dst_addrs_size == CACHE_ADDRS_SIZE) continue;
+            src_addrs_size = udx_scan_sig(udx_src, sig, sig_length, src_addrs, CACHE_ADDRS_SIZE * sizeof(size_t));
+            if (src_addrs_size != dst_addrs_size) continue;
+            printf("\nSignature hit [%d : %d] (offset: %d) ->\n%s\n\n", src_addrs_size, dst_addrs_size, src_offset, sig);
+            int32_t ind_of_src_addrs = -1;
+            for (size_t i = 0; i < src_addrs_size; i++)
+            {
+                if (src_addrs[i] == blks[rnd_insns_start].insn_addr) {
+                    ind_of_src_addrs = i;
+                    break;
+                }
+            }
+            if (ind_of_src_addrs == -1) {
+                //should never happen
+                printf("Failed to find src_addr in scanned src_addrs...\n");
+                continue;
+            }
+            size_t dst_addr = dst_addrs[ind_of_src_addrs] + src_offset;
+            if (udx_insn_mnemonic(udx_dst, dst_addr) != src_addr_mnemonic) {
+                printf("Instruction opcode changed!\n");
+                continue;
+            }
+            possible_addr = NULL;
+            HASH_FIND_INT(possible_addrs, &dst_addr, possible_addr);
+            if (possible_addr) {
+                possible_addr->count += 1;
+            }
+            else {
+                if (possible_addr_buffer_length >= POSSIBLE_ADDR_BUFFER_SIZE) continue;
+                possible_addr = possible_addr_buffer + (possible_addr_buffer_length++);
+                possible_addr->count = 1;
+                possible_addr->addr = dst_addr;
+                HASH_ADD_INT(possible_addrs, addr, possible_addr);
+            }
+            if (possible_addr->count >= confidence) {
+                most_possible_addr = possible_addr->addr;
+                break;
+            }
+        }
+        free(sig);
+    } while (0); 
     udx_free_blks(blks);
-    return 0;
+    HASH_ITER(hh, possible_addrs, possible_addr, tmp) {
+        printf("Possible addr: %08X, count: %d\n", possible_addr->addr, possible_addr->count);
+        HASH_DEL(possible_addrs, possible_addr);
+    }
+    printf("Migrate completed for address: %08X, %d signatures checked!\n", src_addr, signatures_count);
+    return most_possible_addr;
 }
 
 size_t ud_gen_sig(struct ud* u, char* sig_buffer, size_t sig_buffer_size, size_t match_lvl)

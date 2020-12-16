@@ -69,7 +69,7 @@ ud_disassemble(struct ud* u)
             u->translator(u);
         }
         u->blk.insn_mnemonic = u->mnemonic;
-        u->blk.insn_addr = u->insn_offset;
+        u->blk.insn_addr = (size_t)u->insn_offset;
         u->blk.insn_length = u->inp_ctr;
         memcpy_s(u->blk.insn_bytes, sizeof(u->blk.insn_bytes), ud_insn_ptr(u), u->inp_ctr);
     }
