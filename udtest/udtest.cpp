@@ -45,9 +45,9 @@ int main()
     udx_t udx_new;
     udx_init(&udx_new, buffer_new, file_size_new, 0x400000, 32);
 
-    size_t confidence_from = 2, confidence_to = 2;
-    size_t max_round_from = 20, max_round_to = 20;
-    size_t radius_from = 50, radius_to = 50; 
+    size_t confidence_from = 20, confidence_to = 20;
+    size_t max_round_from = 80, max_round_to = 80;
+    size_t radius_from = 60, radius_to = 60; 
 
     for (size_t confidence = confidence_from; confidence <= confidence_to; confidence++)
     {
