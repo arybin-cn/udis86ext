@@ -137,11 +137,17 @@ size_t udx_gen_sig_rnd(udx_t* udx, size_t target_addr, char* sig_buffer, size_t 
     return sig_size;
 }
 
-size_t udx_scan_sig(udx_t* udx, char* sig_buffer, size_t sig_buffer_size, size_t* ret_buffer, size_t ret_buffer_size) {
+size_t udx_scan_sig(udx_t* udx, char* sig_buffer, size_t sig_buffer_size, udx_scan_result_t* result, size_t mark_addr) {
+    if (!result) return 0;
+    result->addrs_count = 0;
+    result->mark_index = ARYBIN;
+
+    size_t* ret_buffer = result->addrs;
+    size_t ret_buffer_length = sizeof(result->addrs) / sizeof(size_t);
+
     uint16_t real_sig[256] = { 0 };
     uint8_t real_sig_size = 0;
-    size_t i, ret_size = 0;
-    ret_buffer_size /= sizeof(size_t);
+    size_t i;
 
     if (sig_buffer_size / 3 > sizeof(real_sig) / sizeof(uint16_t)) return 0;
 
@@ -158,19 +164,27 @@ size_t udx_scan_sig(udx_t* udx, char* sig_buffer, size_t sig_buffer_size, size_t
      
     uint8_t* start_addr = udx->mem_buffer;
     uint8_t* end_addr = start_addr + udx->mem_buffer_size - real_sig_size;
-
-    while (start_addr < end_addr && ret_size < ret_buffer_size) {
-        for (i = 0; i < real_sig_size; i++) {
-            if (real_sig[i] == SIG_WILDCARD) continue;
-            if (start_addr[i] != (uint8_t)real_sig[i]) break;
-        }
-        if (i >= real_sig_size) {
-            ret_buffer[ret_size++] = (size_t)(start_addr - udx->mem_buffer + udx->load_base);
-        }
+    
+    while (start_addr < end_addr && result->addrs_count < ret_buffer_length) {
+        size_t cur_addr = (size_t)(start_addr - udx->mem_buffer + udx->load_base);
+        
+            if (mark_addr == cur_addr) {
+                ret_buffer[result->addrs_count] = cur_addr;
+                result->mark_index = result->addrs_count++;
+                start_addr++;
+                continue;
+            }
+            for (i = 0; i < real_sig_size; i++) {
+                if (real_sig[i] == SIG_WILDCARD) continue;
+                if (start_addr[i] != (uint8_t)real_sig[i]) break;
+            }
+            if (i >= real_sig_size) {
+                ret_buffer[result->addrs_count++] = cur_addr;
+            } 
         start_addr++;
     }
 
-    return ret_size;
+    return result->addrs_count;
 }
 
 size_t udx_gen_blks(udx_t* udx, size_t target_addr, udx_blk_t** pblks, size_t insns_count, size_t skip_count) {
@@ -245,14 +259,12 @@ typedef struct {
 } addr_counter_t;
 
 #define POSSIBLE_ADDR_BUFFER_SIZE 16
-#define CACHE_ADDRS_SIZE 4096
 size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, size_t sample_insns_radius, size_t confidence, size_t max_round) {
     if (confidence < 1 || max_round < confidence * 2) return 0;
     addr_counter_t* possible_addrs = NULL, * possible_addr, * tmp;
     addr_counter_t possible_addr_buffer[POSSIBLE_ADDR_BUFFER_SIZE]; size_t possible_addr_buffer_length = 0;
     size_t most_possible_addr = 0, sig_size, sig_length;
-    size_t src_addrs[CACHE_ADDRS_SIZE], src_addrs_size;
-    size_t dst_addrs[CACHE_ADDRS_SIZE], dst_addrs_size;
+    udx_scan_result_t src_scan_result, dst_scan_result;
     size_t round_count = 0;
     ud_mnemonic_code_t src_addr_mnemonic = udx_insn_mnemonic(udx_src, src_addr);
 
@@ -268,34 +280,24 @@ size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, size_t sampl
             round_count++;
             size_t rnd_insns_size = udx_rnd(3, blks_length);
             size_t rnd_insns_start = udx_rnd(0, blks_length - rnd_insns_size);
-            int32_t src_offset = src_addr - blks[rnd_insns_start].insn_addr;
+            int src_offset = (int)(src_addr - blks[rnd_insns_start].insn_addr);
             sig_length = udx_blks_gen_sig_rnd(blks + rnd_insns_start, rnd_insns_size*sizeof(udx_blk_t), sig, sig_size, DEF_THRESHOLD_DISP, DEF_THRESHOLD_IMM);
             if (!sig_length) {
                 //printf("Failed to generate signature...(%d, %d, %d)\n", rnd_insns_start, rnd_insns_size, blks_length);
                 continue;
             }             
-            dst_addrs_size = udx_scan_sig(udx_dst, sig, sig_length, dst_addrs, CACHE_ADDRS_SIZE * sizeof(size_t));
-            if (round_count % 5 == 0) {
-                //printf("%.3d signatures verified...\n", round_count);
-            }
-            if (dst_addrs_size == 0 || dst_addrs_size == CACHE_ADDRS_SIZE) continue;
-            src_addrs_size = udx_scan_sig(udx_src, sig, sig_length, src_addrs, CACHE_ADDRS_SIZE * sizeof(size_t));
-            if (src_addrs_size != dst_addrs_size) continue;
+            udx_scan_sig(udx_dst, sig, sig_length, &dst_scan_result, 0);
+            if (dst_scan_result.addrs_count == 0 || dst_scan_result.addrs_count == sizeof(dst_scan_result.addrs) / sizeof(size_t)) continue;
+
+            udx_scan_sig(udx_src, sig, sig_length, &src_scan_result, blks[rnd_insns_start].insn_addr);
+            if (src_scan_result.addrs_count != dst_scan_result.addrs_count) continue;
             //printf("\nSignature hit [%d : %d] (offset: %d) ->\n%s\n\n", src_addrs_size, dst_addrs_size, src_offset, sig);
-            int32_t ind_of_src_addrs = -1;
-            for (size_t i = 0; i < src_addrs_size; i++)
-            {
-                if (src_addrs[i] == blks[rnd_insns_start].insn_addr) {
-                    ind_of_src_addrs = i;
-                    break;
-                }
-            }
-            if (ind_of_src_addrs == -1) {
+            if (src_scan_result.mark_index == ARYBIN) {
                 //should never happen
                 //printf("Failed to find src_addr in scanned src_addrs...\n");
                 continue;
             }
-            size_t dst_addr = dst_addrs[ind_of_src_addrs] + src_offset;
+            size_t dst_addr = dst_scan_result.addrs[src_scan_result.mark_index] + src_offset;
             if (udx_insn_mnemonic(udx_dst, dst_addr) != src_addr_mnemonic) {
                 //printf("Instruction opcode changed!\n");
                 continue;

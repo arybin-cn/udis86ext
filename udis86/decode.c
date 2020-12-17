@@ -724,7 +724,7 @@ decode_modrm_rm(struct ud* u,
     u->blk.modrm_stb = (op->base == UD_NONE || op->base == UD_R_BP || op->base == UD_R_EBP || op->base == UD_R_RBP ||
         op->base == UD_R_SP || op->base == UD_R_ESP || op->base == UD_R_RSP);
     if (offset) {
-        decode_mem_disp(u, offset, op);
+        decode_mem_disp(u, (unsigned int)offset, op);
     }
     else {
         op->offset = 0;

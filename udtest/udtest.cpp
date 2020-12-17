@@ -8,11 +8,11 @@
 
 #define DUMP_FILE_FROM "..\\Res\\CMS176.1.CEM"
 #define DUMP_FILE_TO "..\\Res\\CMS175.3.CEM"
-#define TEST_COUNT 500
+#define TEST_COUNT 100
 
 int main()
 {
-    srand((size_t)time(0));
+    srand((unsigned int)time(0));
 
     FILE* file;
     size_t file_size_old, file_size_new, file_size_readed;
@@ -21,21 +21,21 @@ int main()
     fopen_s(&file, DUMP_FILE_FROM, "rb");
     fseek(file, 0, SEEK_END);
     file_size_old = ftell(file);
-    printf("Old dump file size: %d bytes\n", file_size_old);
+    printf("Old dump file size: %zd bytes\n", file_size_old);
     fseek(file, 0, SEEK_SET);
     buffer_old = (uint8_t*)malloc(file_size_old);
     file_size_readed = fread_s(buffer_old, file_size_old, 1, file_size_old, file);
-    printf("Old dump file readed size: %d bytes\n", file_size_readed);
+    printf("Old dump file readed size: %zd bytes\n", file_size_readed);
     fclose(file);
 
     fopen_s(&file, DUMP_FILE_TO, "rb");
     fseek(file, 0, SEEK_END);
     file_size_new = ftell(file);
-    printf("New dump file size: %d bytes\n", file_size_new);
+    printf("New dump file size: %zd bytes\n", file_size_new);
     fseek(file, 0, SEEK_SET);
     buffer_new = (uint8_t*)malloc(file_size_new);
     file_size_readed = fread_s(buffer_new, file_size_new, 1, file_size_new, file);
-    printf("New dump file readed size: %d bytes\n", file_size_readed);
+    printf("New dump file readed size: %zd bytes\n", file_size_readed);
     fclose(file);
 
     printf("Migrate from %s to %s\n", DUMP_FILE_FROM, DUMP_FILE_TO);
@@ -45,12 +45,15 @@ int main()
     udx_t udx_new;
     udx_init(&udx_new, buffer_new, file_size_new, 0x400000, 32);
 
+    size_t confidence_from = 2, confidence_to = 2;
+    size_t max_round_from = 20, max_round_to = 20;
+    size_t radius_from = 50, radius_to = 50; 
 
-    for (size_t confidence = 2; confidence <= 3; confidence++)
+    for (size_t confidence = confidence_from; confidence <= confidence_to; confidence++)
     {
-        for (size_t maxRound = 20; maxRound <= 20; maxRound++)
+        for (size_t maxRound = max_round_from; maxRound <= max_round_from; maxRound++)
         {
-            for (size_t radius = 5; radius <= 120; radius++)
+            for (size_t radius = radius_from; radius <= radius_to; radius++)
             {
                 size_t succeed_count = 0;
                 size_t failed_addr[TEST_COUNT];
@@ -72,17 +75,15 @@ int main()
                 }
                 clock_t et = clock();
                 double time_elapsed = (double)(et - st) / CLOCKS_PER_SEC / TEST_COUNT;
-                printf("Radius: %.3d, Confidence: %.2d, MaxRound:%.3d, Average Time Elapsed: %.3fs, Migrate Rate: %.3f (%d/%d)\nFailed address(%d): ",
+                printf("Radius: %.3zd, Confidence: %.2zd, MaxRound:%.3zd, Average Time Elapsed: %.3fs, Migrate Rate: %.3f (%zd/%d)\nFailed address(%zd): ",
                     radius, confidence, maxRound, time_elapsed, ((double)succeed_count) / TEST_COUNT, succeed_count, TEST_COUNT, failed_addr_size);
                 for (size_t i = 0; i < failed_addr_size; i++)
                 {
-                    printf("%08X ", failed_addr[i]);
+                    printf("%08zX ", failed_addr[i]);
                 }
                 printf("\n");
             }
-
         }
-
     }
 
 

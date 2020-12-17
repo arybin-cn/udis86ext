@@ -39,6 +39,7 @@ extern "C" {
 * udis86ext structs & apis
 * =============================================================================
 */
+#define ARYBIN 0x46724672
 
 #define UD_MATCH_NONE 0
 #define UD_MATCH_LOW 1
@@ -56,6 +57,13 @@ typedef struct {
     size_t mem_buffer_size;
     size_t load_base;
 }udx_t;
+
+#define CACHE_ADDRS_SIZE 2048-2
+typedef struct {
+    size_t mark_index;
+    size_t addrs_count;
+    size_t addrs[CACHE_ADDRS_SIZE];
+}udx_scan_result_t;
  
 uint64_t udx_abs(int64_t src);
 size_t udx_rnd(size_t a, size_t b);
@@ -65,7 +73,7 @@ size_t udx_blks_gen_sig(struct udx_blk* blks, size_t blks_size, char* sig_buffer
 size_t udx_blks_gen_sig_rnd(struct udx_blk* blks, size_t blks_size, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold);
 size_t udx_gen_sig(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size, size_t insn_size, size_t match_lvl);
 size_t udx_gen_sig_rnd(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size, size_t insn_size);
-size_t udx_scan_sig(udx_t* udx, char* sig_buffer, size_t sig_buffer_size, size_t* ret_buffer, size_t ret_buffer_size);
+size_t udx_scan_sig(udx_t* udx, char* sig_buffer, size_t sig_buffer_size, udx_scan_result_t* result, size_t mark_addr);
 size_t udx_gen_blks(udx_t* udx, size_t target_addr, udx_blk_t** pblks, size_t insns_count, size_t skip_count);
 void udx_free_blks(udx_blk_t* blks);
 size_t udx_insn_count(udx_t* udx, size_t start_addr, size_t end_addr);
