@@ -7,7 +7,8 @@
 #include <cstdint>
 
 #define DUMP_FILE_FROM "..\\Res\\CMS176.1.CEM"
-#define DUMP_FILE_TO "..\\Res\\CMS168.1.CEM"
+#define DUMP_FILE_TO "..\\Res\\CMS175.3.CEM"
+#define TEST_COUNT 500
 
 int main()
 {
@@ -44,10 +45,47 @@ int main()
     udx_t udx_new;
     udx_init(&udx_new, buffer_new, file_size_new, 0x400000, 32);
 
-    size_t dst_addr = udx_migrate(&udx_old, &udx_new, 0x01DE824E, 100, 5);
-    if (dst_addr) {
-        printf("Found: %08X\n", dst_addr);
+
+    for (size_t confidence = 2; confidence <= 3; confidence++)
+    {
+        for (size_t maxRound = 20; maxRound <= 20; maxRound++)
+        {
+            for (size_t radius = 5; radius <= 120; radius++)
+            {
+                size_t succeed_count = 0;
+                size_t failed_addr[TEST_COUNT];
+                size_t failed_addr_size = 0;
+                clock_t st = clock();
+                for (size_t i = 0; i < TEST_COUNT; i++)
+                {
+                    udx_blk_t* blks;
+                    size_t blks_length = udx_gen_blks(&udx_old, 0x401000 + (rand() * rand()) % (udx_old.mem_buffer_size / 2), &blks, 20, 0);
+                    size_t src_addr = blks[blks_length - 2].insn_addr;
+                    size_t dst_addr = udx_migrate(&udx_old, &udx_new, src_addr, radius, confidence, maxRound);
+                    if (dst_addr) {
+                        succeed_count++;
+                    }
+                    else {
+                        failed_addr[failed_addr_size++] = src_addr;
+                    }
+                    udx_free_blks(blks);
+                }
+                clock_t et = clock();
+                double time_elapsed = (double)(et - st) / CLOCKS_PER_SEC / TEST_COUNT;
+                printf("Radius: %.3d, Confidence: %.2d, MaxRound:%.3d, Average Time Elapsed: %.3fs, Migrate Rate: %.3f (%d/%d)\nFailed address(%d): ",
+                    radius, confidence, maxRound, time_elapsed, ((double)succeed_count) / TEST_COUNT, succeed_count, TEST_COUNT, failed_addr_size);
+                for (size_t i = 0; i < failed_addr_size; i++)
+                {
+                    printf("%08X ", failed_addr[i]);
+                }
+                printf("\n");
+            }
+
+        }
+
     }
+
+
     free(buffer_old);
     free(buffer_new);
 
