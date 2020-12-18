@@ -51,7 +51,7 @@ extern "C" {
 #define DEF_THRESHOLD_DISP 0x50
 #define DEF_THRESHOLD_IMM 0x100
 #define NOISE_THRESHOLD_MIN 0.0999 //10%
-#define NOISE_THRESHOLD_MAX 0.2999 //30%
+#define NOISE_THRESHOLD_MAX 0.1999 //20%
 
 typedef struct {
     ud_t ud;

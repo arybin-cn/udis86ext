@@ -199,27 +199,31 @@ size_t udx_scan_result_migrate(udx_scan_result_t* src_res, udx_scan_result_t* ds
         //reckon unstable signature if address noise > NOISE_THRESHOLD
         if ((double)change / src_res->addrs_count > NOISE_THRESHOLD_MIN) return 0;
     }
-
-    if (src_res->mark_index < 1) return dst_res->addrs[src_res->mark_index];
-
-    uint64_t offset_x0 = 0, offset_x1 = 0;
-    uint64_t offset_x0_tmp, offset_x1_tmp, tmp_offset;
-    uint64_t min_offset = UINT64_MAX;
+    if (src_res->mark_index < 2) return dst_res->addrs[src_res->mark_index];
+    //ensure that mark_index >= 2
+    uint64_t offset_x0 = 0, offset_x1 = 0, offset_x2 = 0;
+    uint64_t offset_x0_tmp, offset_x1_tmp, offset_x2_tmp;
+    uint64_t tmp_offset, min_offset = UINT64_MAX;
     size_t min_offset_addr_index = ARYBIN;
 
     offset_x0 = src_res->addrs[src_res->mark_index] - src_res->addrs[0];
     offset_x1 = src_res->addrs[src_res->mark_index] - src_res->addrs[src_res->mark_index - 1];
+    offset_x2 = src_res->addrs[src_res->mark_index] - src_res->addrs[src_res->mark_index - 2];
 
-    for (size_t i = 1; i < dst_res->addrs_count; i++)
+    for (size_t i = 2; i < dst_res->addrs_count; i++)
     {
         offset_x0_tmp = dst_res->addrs[i] - dst_res->addrs[0];
         offset_x1_tmp = dst_res->addrs[i] - dst_res->addrs[i - 1];
-        tmp_offset = (offset_x0_tmp - offset_x0) * (offset_x0_tmp - offset_x0) +
-            (offset_x1_tmp - offset_x1) * (offset_x1_tmp - offset_x1);
+        offset_x2_tmp = dst_res->addrs[i] - dst_res->addrs[i - 2];
+
+        tmp_offset = (offset_x0_tmp - offset_x0) * (offset_x0_tmp - offset_x0) + (offset_x1_tmp - offset_x1) * (offset_x1_tmp - offset_x1) +
+            (offset_x2_tmp - offset_x2) * (offset_x2_tmp - offset_x2);
+
         if (tmp_offset < min_offset) {
             min_offset = tmp_offset;
             min_offset_addr_index = i;
         }
+        printf("(%.4zd) %08zX->%zd\n", i, dst_res->addrs[i], tmp_offset);
     }
     dst_res->mark_index = min_offset_addr_index;
     return dst_res->addrs[min_offset_addr_index];
@@ -314,10 +318,10 @@ size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, size_t sampl
         sig_size = (blks_length + EXTRA_INSN_RADIUS) * AVERAGE_INSN_LENGTH * 3;
         char* sig = (char*)malloc(sig_size);
         if (!sig) break;
-        printf("Migrate started for address: %08X, sample_insns_radius: %d, sig_buffer_size: %d\n", src_addr, sample_insns_radius, sig_size);
+        printf("Migrate started for address: %08zX, sample_insns_radius: %zd, sig_buffer_size: %zd\n", src_addr, sample_insns_radius, sig_size);
         while (round_count < max_round) {
             round_count++;
-            size_t rnd_insns_size = udx_rnd(3, 10);
+            size_t rnd_insns_size = udx_rnd(5, max(15, blks_length));
             size_t rnd_insns_start = udx_rnd(0, blks_length - rnd_insns_size);
             int src_offset = (int)(src_addr - blks[rnd_insns_start].insn_addr);
             sig_length = udx_blks_gen_sig_rnd(blks + rnd_insns_start, rnd_insns_size*sizeof(udx_blk_t), sig, sig_size, DEF_THRESHOLD_DISP, DEF_THRESHOLD_IMM);
@@ -347,7 +351,13 @@ size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, size_t sampl
                 printf("Instruction opcode changed! %X->%X(%08zX)\n", src_addr_mnemonic, udx_insn_mnemonic(udx_dst, dst_addr), dst_addr);
                 continue;
             }
-            printf("\nSignature hit [%d : %d] (offset: %d) -> %08zX\n%s\n\n", src_scan_result.addrs_count, dst_scan_result.addrs_count, src_offset, dst_addr, sig);
+            printf("\nSignature hit [%zd : %zd] (%zd:%08zX, offset:%d) -> %08zX\n%s\n\n",
+                src_scan_result.addrs_count, dst_scan_result.addrs_count,
+                src_scan_result.mark_index, dst_scan_result.addrs[src_scan_result.mark_index] + src_offset,
+                src_offset, dst_addr, sig);
+            if (dst_scan_result.addrs[src_scan_result.mark_index] + src_offset != dst_addr) {
+                system("pause");
+            }
 
             possible_addr = NULL;
             HASH_FIND_INT(possible_addrs, &dst_addr, possible_addr);
@@ -370,7 +380,7 @@ size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, size_t sampl
     } while (0); 
     udx_free_blks(blks);
     HASH_ITER(hh, possible_addrs, possible_addr, tmp) {
-        printf("Possible addr: %08X, count: %d\n", possible_addr->addr, possible_addr->count);
+        printf("Possible addr: %08zX, count: %zd\n", possible_addr->addr, possible_addr->count);
         HASH_DEL(possible_addrs, possible_addr);
     }
     printf("\n");
