@@ -190,16 +190,17 @@ size_t udx_scan_sig(udx_t* udx, char* sig_buffer, size_t sig_buffer_size, udx_sc
 size_t udx_scan_result_migrate(udx_scan_result_t* src_res, udx_scan_result_t* dst_res) {
     dst_res->mark_index = ARYBIN;
     if (src_res->mark_index >= src_res->addrs_count) return 0;
-    if (src_res->mark_index < 1) return dst_res->addrs[src_res->mark_index];
-
+   
     size_t change = (size_t)udx_abs(dst_res->addrs_count - src_res->addrs_count);
     if (src_res->addrs_count < 10) {
-        if (change > 1) return 0;
+        if ((double)change / src_res->addrs_count > NOISE_THRESHOLD_MAX) return 0;
     }
     else {
         //reckon unstable signature if address noise > NOISE_THRESHOLD
-        if ((double)change / src_res->addrs_count > NOISE_THRESHOLD) return 0;
+        if ((double)change / src_res->addrs_count > NOISE_THRESHOLD_MIN) return 0;
     }
+
+    if (src_res->mark_index < 1) return dst_res->addrs[src_res->mark_index];
 
     uint64_t offset_x0 = 0, offset_x1 = 0;
     uint64_t offset_x0_tmp, offset_x1_tmp, tmp_offset;
@@ -245,6 +246,7 @@ size_t udx_gen_blks(udx_t* udx, size_t target_addr, udx_blk_t** pblks, size_t in
         udx_free_blks(blks);
         return 0;
     }
+
     *pblks = blks;
     return blks_count_generated;
 }
@@ -315,7 +317,7 @@ size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, size_t sampl
         printf("Migrate started for address: %08X, sample_insns_radius: %d, sig_buffer_size: %d\n", src_addr, sample_insns_radius, sig_size);
         while (round_count < max_round) {
             round_count++;
-            size_t rnd_insns_size = udx_rnd(3, blks_length);
+            size_t rnd_insns_size = udx_rnd(3, 10);
             size_t rnd_insns_start = udx_rnd(0, blks_length - rnd_insns_size);
             int src_offset = (int)(src_addr - blks[rnd_insns_start].insn_addr);
             sig_length = udx_blks_gen_sig_rnd(blks + rnd_insns_start, rnd_insns_size*sizeof(udx_blk_t), sig, sig_size, DEF_THRESHOLD_DISP, DEF_THRESHOLD_IMM);
@@ -327,9 +329,9 @@ size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, size_t sampl
             if (dst_scan_result.addrs_count == 0 || dst_scan_result.addrs_count == sizeof(dst_scan_result.addrs) / sizeof(size_t)) continue;
             udx_scan_sig(udx_src, sig, sig_length, &src_scan_result, blks[rnd_insns_start].insn_addr);
 
-            if (dst_scan_result.addrs_count != src_scan_result.addrs_count) {
-                printf("\nSignature hit [%d : %d] (offset: %d) ->\n%s\n\n", src_scan_result.addrs_count, dst_scan_result.addrs_count, src_offset, sig);
-            }
+            //if (dst_scan_result.addrs_count != src_scan_result.addrs_count) {
+            //    printf("\nSignature hit [%d : %d] (offset: %d) ->\n%s\n\n", src_scan_result.addrs_count, dst_scan_result.addrs_count, src_offset, sig);
+            //}
 
             if (src_scan_result.mark_index == ARYBIN) {
                 //should never happen
@@ -345,6 +347,8 @@ size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, size_t sampl
                 printf("Instruction opcode changed! %X->%X(%08zX)\n", src_addr_mnemonic, udx_insn_mnemonic(udx_dst, dst_addr), dst_addr);
                 continue;
             }
+            printf("\nSignature hit [%d : %d] (offset: %d) -> %08zX\n%s\n\n", src_scan_result.addrs_count, dst_scan_result.addrs_count, src_offset, dst_addr, sig);
+
             possible_addr = NULL;
             HASH_FIND_INT(possible_addrs, &dst_addr, possible_addr);
             if (possible_addr) {

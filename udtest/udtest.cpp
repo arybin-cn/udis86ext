@@ -45,9 +45,9 @@ int main()
     udx_t udx_new;
     udx_init(&udx_new, buffer_new, file_size_new, 0x400000, 32);
 
-    size_t confidence_from = 20, confidence_to = 20;
-    size_t max_round_from = 80, max_round_to = 80;
-    size_t radius_from = 60, radius_to = 60; 
+    size_t confidence_from = 30, confidence_to = 30;
+    size_t max_round_from = 150, max_round_to = 150;
+    size_t radius_from = 20, radius_to = 20; 
 
     for (size_t confidence = confidence_from; confidence <= confidence_to; confidence++)
     {
@@ -64,6 +64,7 @@ int main()
                     udx_blk_t* blks;
                     size_t blks_length = udx_gen_blks(&udx_old, 0x401000 + (rand() * rand()) % (udx_old.mem_buffer_size / 2), &blks, 20, 0);
                     size_t src_addr = blks[blks_length - 2].insn_addr;
+                    /*src_addr = 0x006896C5;*/
                     size_t dst_addr = udx_migrate(&udx_old, &udx_new, src_addr, radius, confidence, maxRound);
                     if (dst_addr) {
                         succeed_count++;

@@ -50,7 +50,8 @@ extern "C" {
 #define SIG_WILDCARD 0xFFFF
 #define DEF_THRESHOLD_DISP 0x50
 #define DEF_THRESHOLD_IMM 0x100
-#define NOISE_THRESHOLD 0.099 //10%
+#define NOISE_THRESHOLD_MIN 0.0999 //10%
+#define NOISE_THRESHOLD_MAX 0.2999 //30%
 
 typedef struct {
     ud_t ud;
@@ -59,7 +60,7 @@ typedef struct {
     size_t load_base;
 }udx_t;
 
-#define CACHE_ADDRS_SIZE 2048-2
+#define CACHE_ADDRS_SIZE 8192-2
 typedef struct {
     size_t mark_index;
     size_t addrs_count;
