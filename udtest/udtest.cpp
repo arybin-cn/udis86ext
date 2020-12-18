@@ -7,7 +7,7 @@
 #include <cstdint>
 
 #define DUMP_FILE_FROM "..\\Res\\CMS176.1.CEM"
-#define DUMP_FILE_TO "..\\Res\\CMS175.3.CEM"
+#define DUMP_FILE_TO "..\\Res\\CMS168.1.CEM"
 #define TEST_COUNT 100
 
 int main()

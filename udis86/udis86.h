@@ -50,8 +50,8 @@ extern "C" {
 #define SIG_WILDCARD 0xFFFF
 #define DEF_THRESHOLD_DISP 0x50
 #define DEF_THRESHOLD_IMM 0x100
-#define NOISE_THRESHOLD_MIN 0.0999 //10%
-#define NOISE_THRESHOLD_MAX 0.1999 //20%
+#define RES_DISTANCE_DIMENSION 128
+#define RES_CORRECT_RATE_MIN 50.0
 
 typedef struct {
     ud_t ud;
@@ -73,10 +73,11 @@ void udx_init(udx_t* udx, uint8_t* mem_buffer, size_t mem_buffer_size, size_t lo
 size_t udx_blk_gen_sig(struct udx_blk* blk, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t match_lvl);
 size_t udx_blks_gen_sig(struct udx_blk* blks, size_t blks_size, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t match_lvl);
 size_t udx_blks_gen_sig_rnd(struct udx_blk* blks, size_t blks_size, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold);
+size_t udx_gen_offsets(udx_t* udx, size_t target_addr, int32_t* offsets_buffer, size_t offsets_buffer_size, size_t count);
 size_t udx_gen_sig(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size, size_t insn_size, size_t match_lvl);
 size_t udx_gen_sig_rnd(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size, size_t insn_size);
 size_t udx_scan_sig(udx_t* udx, char* sig_buffer, size_t sig_buffer_size, udx_scan_result_t* result, size_t mark_addr);
-size_t udx_scan_result_migrate(udx_scan_result_t* src_res, udx_scan_result_t* dst_res);
+size_t udx_scan_result_migrate(udx_t* src_udx, udx_t* dst_udx, udx_scan_result_t* src_res, udx_scan_result_t* dst_res);
 size_t udx_gen_blks(udx_t* udx, size_t target_addr, udx_blk_t** pblks, size_t insns_count, size_t skip_count);
 void udx_free_blks(udx_blk_t* blks);
 size_t udx_insn_count(udx_t* udx, size_t start_addr, size_t end_addr);
