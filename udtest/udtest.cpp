@@ -7,7 +7,7 @@
 #include <cstdint>
 
 #define DUMP_FILE_FROM "..\\Res\\CMS176.1.CEM"
-#define DUMP_FILE_TO "..\\Res\\CMS168.1.CEM"
+#define DUMP_FILE_TO "..\\Res\\CMS175.3.CEM"
 #define TEST_COUNT 100
 
 int main()
@@ -45,7 +45,7 @@ int main()
     udx_t udx_new;
     udx_init(&udx_new, buffer_new, file_size_new, 0x400000, 32);
 
-    size_t max_round_from = 50, max_round_to = 50;
+    size_t max_round_from = 10, max_round_to = 10;
     size_t radius_from = 20, radius_to = 20;
 
     for (size_t maxRound = max_round_from; maxRound <= max_round_from; maxRound++)
@@ -61,18 +61,20 @@ int main()
                 udx_blk_t* blks;
                 size_t blks_length = udx_gen_blks(&udx_old, 0x401000 + (rand() * rand()) % (udx_old.mem_buffer_size / 2), &blks, 20, 0);
                 size_t src_addr = blks[blks_length - 2].insn_addr;
-                /*src_addr = 0x006896C5;*/
                 udx_addr_t* res;
-                size_t addrs_count = udx_migrate(&udx_old, &udx_new, src_addr, &res, radius, maxRound);
+                size_t total_sample_count;
+                /*src_addr = 0x027BAB43;*/
+                printf("Start migrating for %08zX\n", src_addr);
+                size_t addrs_count = udx_migrate(&udx_old, &udx_new, src_addr, &res, radius, maxRound, &total_sample_count);
                 if (addrs_count) {
                     succeed_count++;
-                    printf("Migrate for %08zX (%zd):\n", src_addr, addrs_count);
+                    printf("Migrate for %08zX (%zd/%zd):\n", src_addr, addrs_count, total_sample_count);
                     for (size_t j = 0; j < addrs_count; j++)
                     {
                         printf("(%.2zd)\tAddr: %08zX\tSimilarity: %.2lf%%\tHit: %.2zd\tProb: %.2lf%%\n",
                             j + 1, res[j].address, res[j].similarity, res[j].hit, res[j].prob);
                     }
-                    system("pause");
+                    /*system("pause");*/
                     udx_free(res);
                 }
                 else {

@@ -57,7 +57,10 @@ extern "C" {
 #define RES_DISTANCE_DIMENSION 128
 #define RES_PROB_MIN 50.0 //%
 
-#define EXTRA_INSN_RADIUS 10
+#define RND_SIG_INSNS_SIZE_MIN 5
+#define RND_SIG_INSNS_SIZE_MAX 15
+
+#define EXTRA_INSN_RADIUS 16
 #define AVERAGE_INSN_LENGTH 7
 #define AVERAGE_DISTANCE_BETWEEN_CALLS 30
 
@@ -111,7 +114,7 @@ size_t udx_scan_sig(udx_t* udx, char* sig_buffer, size_t sig_buffer_size, udx_sc
 size_t udx_gen_addr(size_t address, float similarity, udx_addr_t** paddr);
 size_t udx_gen_hashed_addr(size_t address, float similarity, udx_hashed_addr_t** paddr);
 size_t udx_migrate_scan_result(udx_scan_result_t* res_src, udx_scan_result_t* res_dst, udx_addr_t** paddrs);
-size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, udx_addr_t** paddrs, size_t sample_radius, size_t sample_count);
+size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, udx_addr_t** paddrs, size_t sample_radius, size_t sample_count, size_t* total_sample_count);
 
 size_t ud_gen_sig(struct ud* u, char* sig_buffer, size_t sig_buffer_size, size_t match_lvl);
 

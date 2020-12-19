@@ -333,12 +333,12 @@ ud_mnemonic_code_t udx_insn_mnemonic(udx_t* udx, size_t addr) {
     return mnemonic;
 }
 
-size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, udx_addr_t** paddrs, size_t sample_radius, size_t sample_count) {
+size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, udx_addr_t** paddrs, size_t sample_radius, size_t sample_count, size_t* total_sample_count) {
     udx_hashed_addr_t* hashed_addrs = NULL, * hashed_addr, * tmp;
     size_t sig_size, sig_length;
     udx_scan_result_t src_scan_result, dst_scan_result;
 
-    size_t count = 0;
+    size_t count = 0, count_hit = 0;
     ud_mnemonic_code_t mnemonic_src = udx_insn_mnemonic(udx_src, src_addr);
 
     udx_blk_t* blks;
@@ -348,10 +348,14 @@ size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, udx_addr_t**
         sig_size = (blks_length + EXTRA_INSN_RADIUS) * AVERAGE_INSN_LENGTH * 3;
         char* sig = (char*)malloc(sig_size);
         if (!sig) break;
-        //printf("Migrate started for address: %08zX, sample_insns_radius: %zd, sig_buffer_size: %zd\n", src_addr, sample_radius, sig_size);
-        while (count < sample_count) {
-            count++;
-            size_t rnd_insns_size = udx_rnd(5, max(15, blks_length));
+        while (count_hit < sample_count) {
+            if (!total_sample_count) {
+                if (++count > sample_count) break;
+            }
+            else {
+                *total_sample_count = ++count;
+            }
+            size_t rnd_insns_size = udx_rnd(RND_SIG_INSNS_SIZE_MIN, max(RND_SIG_INSNS_SIZE_MAX, blks_length));
             size_t rnd_insns_start = udx_rnd(0, blks_length - rnd_insns_size);
             int src_offset = (int)(src_addr - blks[rnd_insns_start].insn_addr);
             sig_length = udx_blks_gen_sig_rnd(blks + rnd_insns_start, rnd_insns_size * sizeof(udx_blk_t), sig, sig_size, DEF_THRESHOLD_DISP, DEF_THRESHOLD_IMM);
@@ -373,6 +377,7 @@ size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, udx_addr_t**
             size_t count_addrs_per_round = udx_migrate_scan_result(&src_scan_result, &dst_scan_result, &addrs_per_round);
             if (!count_addrs_per_round) continue;
 
+            size_t current_sig_hit = 0;
             for (size_t i = 0; i < count_addrs_per_round; i++)
             {
                 size_t addr_dst = addrs_per_round[i].address + src_offset;
@@ -380,7 +385,8 @@ size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, udx_addr_t**
                     //printf("Instruction opcode changed! %X->%X(%08zX)\n", mnemonic_src, udx_insn_mnemonic(udx_dst, addr_dst), addr_dst);
                     continue;
                 }
-                printf("\nSignature hit [%zd : %zd] (%zd:%08zX, offset:%d) -> %08zX(%.2lf%%)\n%s\n\n",
+                current_sig_hit = 1;
+                printf("\nSignature hit [%zd : %zd] (%zd:%08zX, offset:%X) -> %08zX(%.2lf%%)\n%s\n\n",
                     src_scan_result.addrs_count, dst_scan_result.addrs_count,
                     src_scan_result.mark_index, dst_scan_result.addrs[src_scan_result.mark_index] + src_offset,
                     src_offset, addr_dst, addrs_per_round[i].similarity, sig);
@@ -400,6 +406,7 @@ size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, udx_addr_t**
                 }
             }
             udx_free(addrs_per_round);
+            count_hit += current_sig_hit;
         }
         free(sig);
     } while (0);
