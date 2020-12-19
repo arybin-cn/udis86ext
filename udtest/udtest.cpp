@@ -11,7 +11,7 @@
 #define TEST_COUNT 100
 
 int main()
-{
+{ 
     srand((unsigned int)time(0));
 
     FILE* file;
@@ -45,45 +45,50 @@ int main()
     udx_t udx_new;
     udx_init(&udx_new, buffer_new, file_size_new, 0x400000, 32);
 
-    size_t confidence_from = 30, confidence_to = 30;
-    size_t max_round_from = 150, max_round_to = 150;
-    size_t radius_from = 20, radius_to = 20; 
+    size_t max_round_from = 50, max_round_to = 50;
+    size_t radius_from = 20, radius_to = 20;
 
-    for (size_t confidence = confidence_from; confidence <= confidence_to; confidence++)
+    for (size_t maxRound = max_round_from; maxRound <= max_round_from; maxRound++)
     {
-        for (size_t maxRound = max_round_from; maxRound <= max_round_from; maxRound++)
+        for (size_t radius = radius_from; radius <= radius_to; radius++)
         {
-            for (size_t radius = radius_from; radius <= radius_to; radius++)
+            size_t succeed_count = 0;
+            size_t failed_addr[TEST_COUNT];
+            size_t failed_addr_size = 0;
+            clock_t st = clock();
+            for (size_t i = 0; i < TEST_COUNT; i++)
             {
-                size_t succeed_count = 0;
-                size_t failed_addr[TEST_COUNT];
-                size_t failed_addr_size = 0;
-                clock_t st = clock();
-                for (size_t i = 0; i < TEST_COUNT; i++)
-                {
-                    udx_blk_t* blks;
-                    size_t blks_length = udx_gen_blks(&udx_old, 0x401000 + (rand() * rand()) % (udx_old.mem_buffer_size / 2), &blks, 20, 0);
-                    size_t src_addr = blks[blks_length - 2].insn_addr;
-                    /*src_addr = 0x006896C5;*/
-                    size_t dst_addr = udx_migrate(&udx_old, &udx_new, src_addr, radius, confidence, maxRound);
-                    if (dst_addr) {
-                        succeed_count++;
+                udx_blk_t* blks;
+                size_t blks_length = udx_gen_blks(&udx_old, 0x401000 + (rand() * rand()) % (udx_old.mem_buffer_size / 2), &blks, 20, 0);
+                size_t src_addr = blks[blks_length - 2].insn_addr;
+                /*src_addr = 0x006896C5;*/
+                udx_addr_t* res;
+                size_t addrs_count = udx_migrate(&udx_old, &udx_new, src_addr, &res, radius, maxRound);
+                if (addrs_count) {
+                    succeed_count++;
+                    printf("Migrate for %08zX (%zd):\n", src_addr, addrs_count);
+                    for (size_t j = 0; j < addrs_count; j++)
+                    {
+                        printf("(%.2zd)\tAddr: %08zX\tSimilarity: %.2lf%%\tHit: %.2zd\tProb: %.2lf%%\n",
+                            j + 1, res[j].address, res[j].similarity, res[j].hit, res[j].prob);
                     }
-                    else {
-                        failed_addr[failed_addr_size++] = src_addr;
-                    }
-                    udx_free_blks(blks);
+                    system("pause");
+                    udx_free(res);
                 }
-                clock_t et = clock();
-                double time_elapsed = (double)(et - st) / CLOCKS_PER_SEC / TEST_COUNT;
-                printf("Radius: %.3zd, Confidence: %.2zd, MaxRound:%.3zd, Average Time Elapsed: %.3fs, Migrate Rate: %.3f (%zd/%d)\nFailed address(%zd): ",
-                    radius, confidence, maxRound, time_elapsed, ((double)succeed_count) / TEST_COUNT, succeed_count, TEST_COUNT, failed_addr_size);
-                for (size_t i = 0; i < failed_addr_size; i++)
-                {
-                    printf("%08zX ", failed_addr[i]);
+                else {
+                    failed_addr[failed_addr_size++] = src_addr;
                 }
-                printf("\n");
+                udx_free(blks);
             }
+            clock_t et = clock();
+            double time_elapsed = (double)(et - st) / CLOCKS_PER_SEC / TEST_COUNT;
+            printf("Radius: %.3zd, MaxRound:%.3zd, Average Time Elapsed: %.3fs, Migrate Rate: %.3f (%zd/%d)\nFailed address(%zd): ",
+                radius, maxRound, time_elapsed, ((double)succeed_count) / TEST_COUNT, succeed_count, TEST_COUNT, failed_addr_size);
+            for (size_t i = 0; i < failed_addr_size; i++)
+            {
+                printf("%08zX ", failed_addr[i]);
+            }
+            printf("\n");
         }
     }
 
@@ -92,14 +97,15 @@ int main()
     free(buffer_new);
 
 
-    /*uint8_t data[] =
+ /*   uint8_t data[] =
     {
         0x55, 0x8B, 0xEC, 0x53, 0x56, 0x57, 0xFF, 0x75, 0x08, 0x8B, 0xF9, 0xE8, 0xE0, 0x03, 0x00, 0x00,
         0x8B, 0x77, 0x04, 0x8B, 0xD8, 0x8B, 0x17, 0x2B, 0xF2, 0x56, 0x52, 0x53, 0xE8, 0x5F, 0xF7, 0x74,
         0x02, 0x8B, 0x0F, 0x83, 0xC4, 0x0C, 0x8B, 0x77, 0x04, 0x2B, 0xF1, 0xC1, 0xFE, 0x02, 0x85, 0xC9,
         0x74, 0x14, 0x8B, 0x47, 0x08, 0x2B, 0xC1, 0x6A, 0x04, 0xC1, 0xF8, 0x02, 0x50, 0x51, 0xE8, 0xDD,
         0xF9, 0xFF, 0xFF, 0x83, 0xC4, 0x0C, 0x8B, 0x45, 0x08, 0x8D, 0x04, 0x83, 0x89, 0x47, 0x08, 0x8D,
-        0x04, 0xB3, 0x89, 0x47, 0x04, 0x89, 0x1F, 0x5F, 0x5E, 0x5B, 0x5D, 0xC2, 0x04, 0x00
+        0x04, 0xB3, 0x89, 0x47, 0x04, 0x89, 0x1F, 0x5F, 0x5E, 0x5B, 0x5D, 0xC2, 0x04, 0x00, 0xFF, 0x50,
+        0x28
     };
     char sig[1024];
     size_t sig_length = 0;
