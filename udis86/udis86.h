@@ -65,7 +65,7 @@ extern "C" {
 #define AVERAGE_DISTANCE_BETWEEN_CALLS 30
 
 typedef struct {
-    ud_t ud;
+    uint8_t mode;
     uint8_t* mem_buffer;
     size_t mem_buffer_size;
     size_t load_base;
@@ -94,7 +94,13 @@ typedef struct {
 }udx_hashed_addr_t;
 
 void udx_init(udx_t* udx, uint8_t* mem_buffer, size_t mem_buffer_size, size_t load_base, uint8_t mode);
+size_t udx_init_ud(udx_t* udx, ud_t* ud, size_t address);
 void udx_free(void* ptr);
+
+int8_t udx_byte(udx_t* udx, size_t address);
+int16_t udx_word(udx_t* udx, size_t address);
+int32_t udx_dword(udx_t* udx, size_t address);
+int64_t udx_qword(udx_t* udx, size_t address);
 
 uint64_t udx_abs(int64_t src);
 size_t udx_rnd(size_t a, size_t b);

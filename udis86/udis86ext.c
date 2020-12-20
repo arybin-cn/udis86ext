@@ -5,15 +5,39 @@
 #include "udis86.h" 
 
 void udx_init(udx_t* udx, uint8_t* mem_buffer, size_t mem_buffer_size, size_t load_base, uint8_t mode) {
-    ud_init(&udx->ud);
-    ud_set_mode(&udx->ud, mode);
+    udx->mode = mode;
     udx->load_base = load_base;
     udx->mem_buffer = mem_buffer;
     udx->mem_buffer_size = mem_buffer_size;
 }
 
+size_t udx_init_ud(udx_t* udx, ud_t* ud, size_t address) {
+    if (address - udx->load_base > udx->mem_buffer_size) return 0;
+    ud_init(ud);
+    ud_set_mode(ud, udx->mode);
+    ud_set_input_buffer(ud, udx->mem_buffer, udx->mem_buffer_size);
+    ud_input_skip(ud, address - udx->load_base);
+    ud_set_pc(ud, address);
+}
+
 void udx_free(void* ptr) {
     free(ptr);
+}
+
+int8_t udx_byte(udx_t* udx, size_t address) {
+    return *(uint8_t*)(udx->mem_buffer + (address - udx->load_base));
+}
+
+int16_t udx_word(udx_t* udx, size_t address) {
+    return *(uint16_t*)(udx->mem_buffer + (address - udx->load_base));
+}
+
+int32_t udx_dword(udx_t* udx, size_t address) {
+    return *(uint32_t*)(udx->mem_buffer + (address - udx->load_base));
+}
+
+int64_t udx_qword(udx_t* udx, size_t address) {
+    return *(uint64_t*)(udx->mem_buffer + (address - udx->load_base));
 }
 
 uint64_t udx_abs(int64_t src) {
@@ -109,22 +133,22 @@ size_t udx_blks_gen_sig_rnd(struct udx_blk* blks, size_t blks_size, char* sig_bu
 }
 
 size_t udx_gen_offsets(udx_t* udx, size_t target_addr, int32_t* offsets_buffer, size_t offsets_buffer_size, size_t count, size_t skip_count) {
-    if (offsets_buffer_size / sizeof(size_t) > count) return 0;
-    ud_set_input_buffer(&udx->ud, udx->mem_buffer, udx->mem_buffer_size);
-    ud_input_skip(&udx->ud, target_addr - udx->load_base);
-    ud_set_pc(&udx->ud, target_addr);
+    if (offsets_buffer_size / sizeof(size_t) < count) return 0;
+    ud_t ud;
+    udx_init_ud(udx, &ud, target_addr);
+
     size_t length = 0;
-    while (length < count && ud_disassemble(&udx->ud)) {
+    while (length < count && ud_disassemble(&ud)) {
         if (skip_count > 0) {
             skip_count--;
             continue;
         }
-        if (ud_insn_mnemonic(&udx->ud) == UD_Icall) {
-            if (udx->ud.blk.have_imm) {
-                offsets_buffer[length++] = (int32_t)udx->ud.blk.imm;
+        if (ud_insn_mnemonic(&ud) == UD_Icall) {
+            if (ud.blk.have_imm) {
+                offsets_buffer[length++] = (int32_t)ud.blk.imm;
             }
-            else if (udx->ud.blk.have_disp) {
-                offsets_buffer[length++] = (int32_t)udx->ud.blk.disp;
+            else if (ud.blk.have_disp) {
+                offsets_buffer[length++] = (int32_t)ud.blk.disp;
             }
         }
     }
@@ -134,12 +158,11 @@ size_t udx_gen_offsets(udx_t* udx, size_t target_addr, int32_t* offsets_buffer, 
 
 
 size_t udx_gen_sig(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size, size_t insn_size, size_t match_lvl) {
-    ud_set_input_buffer(&udx->ud, udx->mem_buffer, udx->mem_buffer_size);
-    ud_input_skip(&udx->ud, target_addr - udx->load_base);
-    ud_set_pc(&udx->ud, target_addr);
+    ud_t ud;
+    udx_init_ud(udx, &ud, target_addr);
     size_t insn_sig_size, sig_size = 0, insn_size_readed = 0;
-    while (ud_disassemble(&udx->ud)) {
-        insn_sig_size = ud_gen_sig(&udx->ud, sig_buffer, sig_buffer_size, match_lvl);
+    while (ud_disassemble(&ud)) {
+        insn_sig_size = ud_gen_sig(&ud, sig_buffer, sig_buffer_size, match_lvl);
         if (!insn_sig_size) return 0;
         sig_buffer += insn_sig_size;
         sig_buffer_size -= insn_sig_size;
@@ -150,13 +173,11 @@ size_t udx_gen_sig(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_
 }
 
 size_t udx_gen_sig_rnd(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size, size_t insn_size) {
-    ud_set_input_buffer(&udx->ud, udx->mem_buffer, udx->mem_buffer_size);
-    ud_input_skip(&udx->ud, target_addr - udx->load_base);
-    ud_set_pc(&udx->ud, target_addr);
-
+    ud_t ud;
+    udx_init_ud(udx, &ud, target_addr);
     size_t insn_sig_size, sig_size = 0, insn_size_readed = 0;
-    while (ud_disassemble(&udx->ud)) {
-        insn_sig_size = ud_gen_sig(&udx->ud, sig_buffer, sig_buffer_size, udx_rnd(UD_MATCH_NONE, UD_MATCH_HIGH));
+    while (ud_disassemble(&ud)) {
+        insn_sig_size = ud_gen_sig(&ud, sig_buffer, sig_buffer_size, udx_rnd(UD_MATCH_NONE, UD_MATCH_HIGH));
         if (!insn_sig_size) return 0;
         sig_buffer += insn_sig_size;
         sig_buffer_size -= insn_sig_size;
@@ -278,15 +299,17 @@ size_t udx_gen_blks(udx_t* udx, size_t target_addr, udx_blk_t** pblks, size_t in
     size_t blks_count_generated = 0;
     udx_blk_t* blks = (udx_blk_t*)malloc(insns_count * sizeof(udx_blk_t));
     if (!blks) return 0;
-    ud_set_input_buffer(&udx->ud, udx->mem_buffer, udx->mem_buffer_size);
-    ud_input_skip(&udx->ud, target_addr - udx->load_base);
-    ud_set_pc(&udx->ud, target_addr);
-    while (ud_disassemble(&udx->ud)) {
+    ud_t ud;
+    udx_init_ud(udx, &ud, target_addr);
+    ud_set_input_buffer(&ud, udx->mem_buffer, udx->mem_buffer_size);
+    ud_input_skip(&ud, target_addr - udx->load_base);
+    ud_set_pc(&ud, target_addr);
+    while (ud_disassemble(&ud)) {
         if (skip_count > 0) {
             skip_count--;
             continue;
         }
-        memcpy_s(blks + (blks_count_generated++), sizeof(struct udx_blk), &udx->ud.blk, sizeof(struct udx_blk));
+        memcpy_s(blks + (blks_count_generated++), sizeof(struct udx_blk), &ud.blk, sizeof(struct udx_blk));
         if (blks_count_generated >= insns_count) break;
     }
     if (blks_count_generated != insns_count) {
@@ -310,25 +333,23 @@ size_t udx_gen_blks_radius(udx_t* udx, size_t target_addr, udx_blk_t** pblks, si
 //return number of insns in [start_addr, end_addr)
 size_t udx_insn_count(udx_t* udx, size_t start_addr, size_t end_addr) {
     if (start_addr >= end_addr) return 0;
-    ud_set_input_buffer(&udx->ud, udx->mem_buffer, udx->mem_buffer_size);
-    ud_input_skip(&udx->ud, start_addr - udx->load_base);
-    ud_set_pc(&udx->ud, start_addr);
+    ud_t ud;
+    udx_init_ud(udx, &ud, start_addr);
     size_t insns_size = 0;
-    while (ud_disassemble(&udx->ud)) {
+    while (ud_disassemble(&ud)) {
         insns_size++;
-        start_addr += ud_insn_len(&udx->ud);
+        start_addr += ud_insn_len(&ud);
         if (start_addr >= end_addr) break;
     }
     return insns_size;
 }
 
 ud_mnemonic_code_t udx_insn_mnemonic(udx_t* udx, size_t addr) {
+    ud_t ud;
+    udx_init_ud(udx, &ud, addr);
     ud_mnemonic_code_t mnemonic = 0;
-    ud_set_input_buffer(&udx->ud, udx->mem_buffer, udx->mem_buffer_size);
-    ud_input_skip(&udx->ud, addr - udx->load_base);
-    ud_set_pc(&udx->ud, addr);
-    if (ud_disassemble(&udx->ud)) {
-        mnemonic = ud_insn_mnemonic(&udx->ud);
+    if (ud_disassemble(&ud)) {
+        mnemonic = ud_insn_mnemonic(&ud);
     }
     return mnemonic;
 }

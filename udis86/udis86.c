@@ -38,7 +38,6 @@ static void ud_inp_init(struct ud* u);
 extern void
 ud_init(struct ud* u)
 {  
-    
     memset(u, 0, sizeof(struct ud));
     ud_set_mode(u, 32);
     u->mnemonic = UD_Iinvalid;
