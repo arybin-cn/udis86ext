@@ -6,8 +6,8 @@
 #include <stdlib.h>
 #include <cstdint>
 
-#define DUMP_FILE_FROM "..\\Res\\CMS176.1.CEM"
-#define DUMP_FILE_TO "..\\Res\\CMS175.3.CEM"
+#define DUMP_FILE_FROM "..\\Res\\CMS174.1.CEM"
+#define DUMP_FILE_TO "..\\Res\\CMS176.1.CEM"
 #define TEST_COUNT 100
 
 int main()
@@ -45,7 +45,7 @@ int main()
     udx_t udx_new;
     udx_init(&udx_new, buffer_new, file_size_new, 0x400000, 32);
 
-    size_t max_round_from = 10, max_round_to = 10;
+    size_t max_round_from = 30, max_round_to = 30;
     size_t radius_from = 20, radius_to = 20;
 
     for (size_t maxRound = max_round_from; maxRound <= max_round_from; maxRound++)

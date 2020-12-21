@@ -18,6 +18,7 @@ size_t udx_init_ud(udx_t* udx, ud_t* ud, size_t address) {
     ud_set_input_buffer(ud, udx->mem_buffer, udx->mem_buffer_size);
     ud_input_skip(ud, address - udx->load_base);
     ud_set_pc(ud, address);
+    return 1;
 }
 
 void udx_free(void* ptr) {
@@ -301,9 +302,6 @@ size_t udx_gen_blks(udx_t* udx, size_t target_addr, udx_blk_t** pblks, size_t in
     if (!blks) return 0;
     ud_t ud;
     udx_init_ud(udx, &ud, target_addr);
-    ud_set_input_buffer(&ud, udx->mem_buffer, udx->mem_buffer_size);
-    ud_input_skip(&ud, target_addr - udx->load_base);
-    ud_set_pc(&ud, target_addr);
     while (ud_disassemble(&ud)) {
         if (skip_count > 0) {
             skip_count--;
@@ -320,8 +318,6 @@ size_t udx_gen_blks(udx_t* udx, size_t target_addr, udx_blk_t** pblks, size_t in
     *pblks = blks;
     return blks_count_generated;
 }
-
-
 size_t udx_gen_blks_radius(udx_t* udx, size_t target_addr, udx_blk_t** pblks, size_t insns_count_radius) {
     if (insns_count_radius < 1) return 0;
     size_t target_addr_start = target_addr - AVERAGE_INSN_LENGTH * (insns_count_radius + EXTRA_INSN_RADIUS), addr_count;
