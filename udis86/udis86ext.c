@@ -2,7 +2,7 @@
 #include <string.h>
 #include <float.h>
 
-#include "udis86.h" 
+#include "udis86ext.h"
 
 void udx_init(udx_t* udx, uint8_t* mem_buffer, size_t mem_buffer_size, size_t load_base, uint8_t mode) {
     udx->mode = mode;
@@ -51,7 +51,7 @@ size_t udx_rnd(size_t a, size_t b) {
     return a + (rand() % (b - a + 1));
 }
 
-size_t udx_blk_gen_sig(struct udx_blk* blk, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t match_lvl)
+size_t udx_blk_gen_sig(udx_blk_t* blk, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t match_lvl)
 {
     uint8_t i, j;
     char* origin_sig_buffer = sig_buffer;
@@ -103,9 +103,9 @@ size_t udx_blk_gen_sig(struct udx_blk* blk, char* sig_buffer, size_t sig_buffer_
     return sig_length;
 }
 
-size_t udx_blks_gen_sig(struct udx_blk* blks, size_t blks_size, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t match_lvl)
+size_t udx_blks_gen_sig(udx_blk_t* blks, size_t blks_size, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t match_lvl)
 {
-    size_t insns_size = blks_size / sizeof(struct udx_blk);
+    size_t insns_size = blks_size / sizeof(udx_blk_t);
     size_t sig_length = 0, blk_sig_length;
     for (size_t i = 0; i < insns_size; i++) {
         blk_sig_length = udx_blk_gen_sig(blks + i, sig_buffer, sig_buffer_size, disp_threshold, imm_threshold, match_lvl);
@@ -118,9 +118,9 @@ size_t udx_blks_gen_sig(struct udx_blk* blks, size_t blks_size, char* sig_buffer
 
 }
 
-size_t udx_blks_gen_sig_rnd(struct udx_blk* blks, size_t blks_size, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold)
+size_t udx_blks_gen_sig_rnd(udx_blk_t* blks, size_t blks_size, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold)
 {
-    size_t insns_size = blks_size / sizeof(struct udx_blk);
+    size_t insns_size = blks_size / sizeof(udx_blk_t);
     size_t sig_length = 0, blk_sig_length;
     for (size_t i = 0; i < insns_size; i++) {
         blk_sig_length = udx_blk_gen_sig(blks + i, sig_buffer, sig_buffer_size, disp_threshold, imm_threshold, udx_rnd(UD_MATCH_NONE, UD_MATCH_HIGH));
@@ -307,7 +307,7 @@ size_t udx_gen_blks(udx_t* udx, size_t target_addr, udx_blk_t** pblks, size_t in
             skip_count--;
             continue;
         }
-        memcpy_s(blks + (blks_count_generated++), sizeof(struct udx_blk), &ud.blk, sizeof(struct udx_blk));
+        memcpy_s(blks + (blks_count_generated++), sizeof(udx_blk_t), &ud.blk, sizeof(udx_blk_t));
         if (blks_count_generated >= insns_count) break;
     }
     if (blks_count_generated != insns_count) {
@@ -446,7 +446,7 @@ size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, udx_addr_t**
     return length_addrs;
 }
 
-size_t ud_gen_sig(struct ud* u, char* sig_buffer, size_t sig_buffer_size, size_t match_lvl)
+size_t ud_gen_sig(ud_t* u, char* sig_buffer, size_t sig_buffer_size, size_t match_lvl)
 {
     return udx_blk_gen_sig(&u->blk, sig_buffer, sig_buffer_size, DEF_THRESHOLD_DISP, DEF_THRESHOLD_IMM, match_lvl);
 }

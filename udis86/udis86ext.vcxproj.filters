@@ -59,5 +59,8 @@
     <ClInclude Include="udis86.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="udis86ext.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

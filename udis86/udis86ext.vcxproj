@@ -160,6 +160,7 @@
     <ClInclude Include="types.h" />
     <ClInclude Include="udint.h" />
     <ClInclude Include="udis86.h" />
+    <ClInclude Include="udis86ext.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

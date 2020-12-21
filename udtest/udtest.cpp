@@ -1,5 +1,4 @@
-#include "../udis86/udis86.h"
-#include "../uthash.h" 
+#include "../udis86/udis86ext.h"
 
 #include <string.h>
 #include <time.h>
