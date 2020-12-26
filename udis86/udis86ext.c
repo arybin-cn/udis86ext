@@ -134,7 +134,7 @@ size_t udx_blks_gen_sig_rnd(udx_blk_t* blks, size_t blks_size, char* sig_buffer,
 }
 
 size_t udx_gen_offsets(udx_t* udx, size_t target_addr, int32_t* offsets_buffer, size_t offsets_buffer_size, size_t count, size_t skip_count) {
-    if (offsets_buffer_size / sizeof(size_t) < count) return 0;
+    if (offsets_buffer_size / sizeof(int32_t) < count) return 0;
     ud_t ud;
     udx_init_ud(udx, &ud, target_addr);
 
