@@ -188,10 +188,9 @@ size_t udx_gen_sig_rnd(udx_t* udx, size_t target_addr, char* sig_buffer, size_t 
     return sig_size;
 }
 
-size_t udx_scan_sig(udx_t* udx, char* sig_buffer, size_t sig_buffer_size, udx_scan_result_t* result, size_t mark_addr) {
+size_t udx_scan_sig(udx_t* udx, char* sig_buffer, size_t sig_buffer_size, udx_scan_result_t* result) {
     if (!result) return 0;
     result->addrs_count = 0;
-    result->mark_index = ARYBIN;
     result->udx = udx;
 
     size_t* ret_buffer = result->addrs;
@@ -219,13 +218,6 @@ size_t udx_scan_sig(udx_t* udx, char* sig_buffer, size_t sig_buffer_size, udx_sc
 
     while (start_addr < end_addr && result->addrs_count < ret_buffer_length) {
         size_t cur_addr = (size_t)(start_addr - udx->mem_buffer + udx->load_base);
-
-        if (mark_addr == cur_addr) {
-            ret_buffer[result->addrs_count] = cur_addr;
-            result->mark_index = result->addrs_count++;
-            start_addr++;
-            continue;
-        }
         for (i = 0; i < real_sig_size; i++) {
             if (real_sig[i] == SIG_WILDCARD) continue;
             if (start_addr[i] != (uint8_t)real_sig[i]) break;
@@ -258,11 +250,20 @@ size_t udx_gen_hashed_addr(size_t address, float similarity, udx_hashed_addr_t**
     return 1;
 }
 
-size_t udx_migrate_scan_result(udx_scan_result_t* res_src, udx_scan_result_t* res_dst, udx_addr_t** paddrs) {
-    if (res_src->mark_index >= res_src->addrs_count) return 0;
-    if (res_dst->addrs_count == res_src->addrs_count) return udx_gen_addr(res_dst->addrs[res_src->mark_index], 100.0, paddrs);
+size_t udx_migrate_scan_result(udx_scan_result_t* res_src, udx_scan_result_t* res_dst, size_t addr_src, udx_addr_t** paddrs) {
+    size_t addr_src_index = ARYBIN;
+    for (size_t i = 0; i < res_src->addrs_count; i++) {
+        if (res_src->addrs[i] == addr_src) {
+            addr_src_index = i;
+            break;
+        }
+    }
+    if (addr_src_index == ARYBIN) return 0;
+    if (res_dst->addrs_count == 0) return 0;
+    if (res_dst->addrs_count == res_src->addrs_count) return udx_gen_addr(res_dst->addrs[addr_src_index], 100.0, paddrs);
+
     udx_t* udx_src = res_src->udx, * udx_dst = res_dst->udx;
-    size_t src_addr = res_src->addrs[res_src->mark_index], dst_addr = 0;
+    size_t src_addr = res_src->addrs[addr_src_index], dst_addr = 0;
     double distance_min = DBL_MAX, distance_tmp, distance_avg = 0, tmp, correct_rate;
 
     int32_t origin_offsets[RES_DISTANCE_DIMENSION], tmp_offsets[RES_DISTANCE_DIMENSION];
@@ -380,18 +381,13 @@ size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, udx_addr_t**
                 //printf("Failed to generate signature...(%d, %d, %d)\n", rnd_insns_start, rnd_insns_size, blks_length);
                 continue;
             }
-            udx_scan_sig(udx_dst, sig, sig_length, &dst_scan_result, 0);
+            udx_scan_sig(udx_dst, sig, sig_length, &dst_scan_result);
             if (dst_scan_result.addrs_count == 0 || dst_scan_result.addrs_count == sizeof(dst_scan_result.addrs) / sizeof(size_t)) continue;
-            udx_scan_sig(udx_src, sig, sig_length, &src_scan_result, blks[rnd_insns_start].insn_addr);
-
-            if (src_scan_result.mark_index == ARYBIN) {
-                //should never happen
-                //printf("Failed to find marked address in src results...\n");
-                exit(1);
-            }
+            udx_scan_sig(udx_src, sig, sig_length, &src_scan_result);
+ 
 
             udx_addr_t* addrs_per_round;
-            size_t count_addrs_per_round = udx_migrate_scan_result(&src_scan_result, &dst_scan_result, &addrs_per_round);
+            size_t count_addrs_per_round = udx_migrate_scan_result(&src_scan_result, &dst_scan_result, blks[rnd_insns_start].insn_addr, &addrs_per_round);
             if (!count_addrs_per_round) continue;
 
             size_t current_sig_hit = 0;
@@ -403,9 +399,9 @@ size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, udx_addr_t**
                     continue;
                 }
                 current_sig_hit = 1;
-                printf("\nSignature hit [%zd : %zd] (%zd:%08zX, offset:%X) -> %08zX(%.2lf%%)\n%s\n\n",
+                printf("\nSignature hit [%zd : %zd] (%08zX, offset:%X) -> %08zX(%.2lf%%)\n%s\n\n",
                     src_scan_result.addrs_count, dst_scan_result.addrs_count,
-                    src_scan_result.mark_index, dst_scan_result.addrs[src_scan_result.mark_index] + src_offset,
+                    blks[rnd_insns_start].insn_addr + src_offset,
                     src_offset, addr_dst, addrs_per_round[i].similarity, sig);
                 hashed_addr = NULL;
                 HASH_FIND_INT(hashed_addrs, &addr_dst, hashed_addr);
