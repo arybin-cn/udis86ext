@@ -61,7 +61,7 @@ int main()
                 size_t blks_length = udx_gen_blks(&udx_old, 0x401000 + (rand() * rand()) % (udx_old.mem_buffer_size / 2), &blks, 20, 0);
                 size_t src_addr = blks[blks_length - 2].insn_addr;
                 udx_addr_t* res; 
-                src_addr = 0x2457EC8;
+                //src_addr = 0x0D12361;
                 printf("Start migrating for %08zX\n", src_addr);
                 size_t addrs_count = udx_migrate(&udx_old, &udx_new, src_addr, &res, radius, maxRound);
                 if (addrs_count) {
@@ -79,6 +79,7 @@ int main()
                     failed_addr[failed_addr_size++] = src_addr;
                 }
                 udx_free(blks);
+                system("pause");
             }
             clock_t et = clock();
             double time_elapsed = (double)(et - st) / CLOCKS_PER_SEC / TEST_COUNT;

@@ -250,7 +250,7 @@ size_t udx_migrate_scan_result(udx_scan_result_t* res_src, udx_scan_result_t* re
     }
     if (addr_src_index == ARYBIN) return 0;
     if (res_dst->addrs_count == 0) return 0;
-    if (res_dst->addrs_count == res_src->addrs_count) return udx_gen_addr(res_dst->addrs[addr_src_index], 100.0, paddrs);
+    //if (res_dst->addrs_count == res_src->addrs_count) return udx_gen_addr(res_dst->addrs[addr_src_index], 100.0, paddrs);
 
     udx_t* udx_src = res_src->udx, * udx_dst = res_dst->udx;
     size_t src_addr = res_src->addrs[addr_src_index], dst_addr = 0;
@@ -362,34 +362,31 @@ size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t addr_src, udx_addr_t**
                 continue;
             }
             int32_t src_offset = (int32_t)(addr_src - addr_src_tmp);
-            //printf("Signature for %08zX, offset: %08X\n%s\n", addr_src_tmp, src_offset, sig);
+
             udx_scan_sig(udx_dst, sig, &dst_scan_result); 
-            //printf("Dst count: %zd\n", dst_scan_result.addrs_count); 
             if (dst_scan_result.addrs_count == 0 || dst_scan_result.addrs_count == sizeof(dst_scan_result.addrs) / sizeof(size_t)) continue;
             udx_scan_sig(udx_src, sig, &src_scan_result);
-            //printf("Src count: %zd\n\n", src_scan_result.addrs_count);
             udx_addr_t* addrs_per_round;
             size_t count_addrs_per_round = udx_migrate_scan_result(&src_scan_result, &dst_scan_result, addr_src_tmp, &addrs_per_round);
             if (!count_addrs_per_round) continue;
+
              
             for (size_t i = 0; i < count_addrs_per_round; i++)
             {
                 size_t addr_dst = addrs_per_round[i].address + src_offset;
-                //if (udx_insn_mnemonic(udx_dst, addr_dst) != mnemonic_src) {
-                //    //printf("Instruction opcode changed! %X->%X(%08zX) (%.2lf%%)\n", mnemonic_src,
-                //    //    udx_insn_mnemonic(udx_dst, addr_dst), addr_dst, addrs_per_round->similarity);
-                //    continue;
-                //}
+                if (udx_insn_mnemonic(udx_dst, addr_dst) != mnemonic_src) {
+                    printf("Instruction opcode changed! %X->%X(%08zX) (%.2lf%%)\n", mnemonic_src,
+                        udx_insn_mnemonic(udx_dst, addr_dst), addr_dst, addrs_per_round->similarity);
+                    continue;
+                }
                 printf("\nSignature hit [%zd : %zd] (%08zX, offset:%X) -> %08zX(%.2lf%%)\n%s\n\n",
                     src_scan_result.addrs_count, dst_scan_result.addrs_count,addr_src_tmp + src_offset,
                     src_offset, addr_dst, addrs_per_round[i].similarity, sig);
                 hashed_addr = NULL;
                 HASH_FIND_INT(hashed_addrs, &addr_dst, hashed_addr);
-                if (hashed_addr) {
-                    /*if (hashed_addr->similarity < addrs_per_round[i].similarity) {*/
-                        hashed_addr->similarity = (hashed_addr->similarity * hashed_addr->hit + addrs_per_round[i].similarity * addrs_per_round[i].hit)
-                            / (hashed_addr->hit + addrs_per_round[i].hit);
-                    /*}*/
+                if (hashed_addr) { 
+                    hashed_addr->similarity = (hashed_addr->similarity * hashed_addr->hit + addrs_per_round[i].similarity * addrs_per_round[i].hit)
+                        / (hashed_addr->hit + addrs_per_round[i].hit);
                     hashed_addr->hit += addrs_per_round[i].hit;
                 }
                 else {
