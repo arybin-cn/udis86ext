@@ -51,7 +51,28 @@ size_t udx_rnd(size_t a, size_t b) {
     return a + (rand() % (b - a + 1));
 }
 
-size_t udx_blk_gen_sig(udx_blk_t* blk, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t match_lvl)
+size_t ud_gen_sig(ud_t* u, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t match_lvl)
+{
+    return udx_gen_sig_blk(&u->blk, sig_buffer, sig_buffer_size, disp_threshold, imm_threshold, match_lvl);
+}
+
+size_t udx_gen_sig(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size,
+    size_t disp_threshold, size_t imm_threshold, size_t insn_size, size_t match_lvl) {
+    ud_t ud;
+    udx_init_ud(udx, &ud, target_addr);
+    size_t insn_sig_size, sig_size = 0, insn_size_readed = 0;
+    while (ud_disassemble(&ud)) {
+        insn_sig_size = ud_gen_sig(&ud, sig_buffer, sig_buffer_size, disp_threshold, imm_threshold, match_lvl);
+        if (!insn_sig_size) return 0;
+        sig_buffer += insn_sig_size;
+        sig_buffer_size -= insn_sig_size;
+        sig_size += insn_sig_size;
+        if (++insn_size_readed >= insn_size) break;
+    }
+    return sig_size;
+}
+
+size_t udx_gen_sig_blk(udx_blk_t* blk, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t match_lvl)
 {
     uint8_t i, j;
     char* origin_sig_buffer = sig_buffer;
@@ -103,12 +124,12 @@ size_t udx_blk_gen_sig(udx_blk_t* blk, char* sig_buffer, size_t sig_buffer_size,
     return sig_length;
 }
 
-size_t udx_blks_gen_sig(udx_blk_t* blks, size_t blks_size, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t match_lvl)
-{
-    size_t insns_size = blks_size / sizeof(udx_blk_t);
+size_t udx_gen_sig_blks(udx_blk_t* blks, size_t blks_count, char* sig_buffer, size_t sig_buffer_size,
+    size_t disp_threshold, size_t imm_threshold, size_t match_lvl)
+{ 
     size_t sig_length = 0, blk_sig_length;
-    for (size_t i = 0; i < insns_size; i++) {
-        blk_sig_length = udx_blk_gen_sig(blks + i, sig_buffer, sig_buffer_size, disp_threshold, imm_threshold, match_lvl);
+    for (size_t i = 0; i < blks_count; i++) {
+        blk_sig_length = udx_gen_sig_blk(blks + i, sig_buffer, sig_buffer_size, disp_threshold, imm_threshold, match_lvl);
         if (!blk_sig_length) return 0;
         sig_buffer += blk_sig_length;
         sig_buffer_size -= blk_sig_length;
@@ -118,19 +139,19 @@ size_t udx_blks_gen_sig(udx_blk_t* blks, size_t blks_size, char* sig_buffer, siz
 
 }
 
-size_t udx_blks_gen_sig_rnd(udx_blk_t* blks, size_t blks_size, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold)
-{
-    size_t insns_size = blks_size / sizeof(udx_blk_t);
+size_t udx_gen_sig_blks_sample(udx_blk_t* blks, size_t blks_count, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t* target_addr) {
+    size_t rnd_insns_size = udx_rnd(min(RND_SIG_INSNS_SIZE_MIN, blks_count), min(RND_SIG_INSNS_SIZE_MAX, blks_count));
+    size_t rnd_insns_start = udx_rnd(0, blks_count - rnd_insns_size);
     size_t sig_length = 0, blk_sig_length;
-    for (size_t i = 0; i < insns_size; i++) {
-        blk_sig_length = udx_blk_gen_sig(blks + i, sig_buffer, sig_buffer_size, disp_threshold, imm_threshold, udx_rnd(UD_MATCH_NONE, UD_MATCH_HIGH));
+    for (size_t i = 0; i < rnd_insns_size; i++) {
+        blk_sig_length = udx_gen_sig_blk(blks + rnd_insns_start + i, sig_buffer, sig_buffer_size, disp_threshold, imm_threshold, udx_rnd(UD_MATCH_NONE, UD_MATCH_HIGH));
         if (!blk_sig_length) return 0;
         sig_buffer += blk_sig_length;
         sig_buffer_size -= blk_sig_length;
         sig_length += blk_sig_length;
     }
+    *target_addr = blks[rnd_insns_start].insn_addr;
     return sig_length;
-
 }
 
 size_t udx_gen_offsets(udx_t* udx, size_t target_addr, int32_t* offsets_buffer, size_t offsets_buffer_size, size_t count, size_t skip_count) {
@@ -158,58 +179,27 @@ size_t udx_gen_offsets(udx_t* udx, size_t target_addr, int32_t* offsets_buffer, 
 }
 
 
-size_t udx_gen_sig(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size, size_t insn_size, size_t match_lvl) {
-    ud_t ud;
-    udx_init_ud(udx, &ud, target_addr);
-    size_t insn_sig_size, sig_size = 0, insn_size_readed = 0;
-    while (ud_disassemble(&ud)) {
-        insn_sig_size = ud_gen_sig(&ud, sig_buffer, sig_buffer_size, match_lvl);
-        if (!insn_sig_size) return 0;
-        sig_buffer += insn_sig_size;
-        sig_buffer_size -= insn_sig_size;
-        sig_size += insn_sig_size;
-        if (++insn_size_readed >= insn_size) break;
-    }
-    return sig_size;
-}
-
-size_t udx_gen_sig_rnd(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size, size_t insn_size) {
-    ud_t ud;
-    udx_init_ud(udx, &ud, target_addr);
-    size_t insn_sig_size, sig_size = 0, insn_size_readed = 0;
-    while (ud_disassemble(&ud)) {
-        insn_sig_size = ud_gen_sig(&ud, sig_buffer, sig_buffer_size, udx_rnd(UD_MATCH_NONE, UD_MATCH_HIGH));
-        if (!insn_sig_size) return 0;
-        sig_buffer += insn_sig_size;
-        sig_buffer_size -= insn_sig_size;
-        sig_size += insn_sig_size;
-        if (++insn_size_readed >= insn_size) break;
-    }
-    return sig_size;
-}
-
-size_t udx_scan_sig(udx_t* udx, char* sig_buffer, size_t sig_buffer_size, udx_scan_result_t* result) {
+size_t udx_scan_sig(udx_t* udx, char* sig, udx_scan_result_t* result) {
     if (!result) return 0;
     result->addrs_count = 0;
     result->udx = udx;
 
     size_t* ret_buffer = result->addrs;
     size_t ret_buffer_length = sizeof(result->addrs) / sizeof(size_t);
+    size_t sig_buffer_size = strlen(sig);
 
     uint16_t real_sig[256] = { 0 };
     uint8_t real_sig_size = 0;
     size_t i;
-
-    if (sig_buffer_size / 3 > sizeof(real_sig) / sizeof(uint16_t)) return 0;
-
+      
     for (i = 0; i < sig_buffer_size; i += 3) {
-        while (sig_buffer[i] == ' ') i++;
-        if (sig_buffer[i] == 0) break;
-        if (sig_buffer[i] == '?') {
+        while (sig[i] == ' ') i++;
+        if (sig[i] == 0) break;
+        if (sig[i] == '?') {
             real_sig[real_sig_size++] = SIG_WILDCARD;
         }
         else {
-            sscanf_s(&sig_buffer[i], "%hx", &real_sig[real_sig_size++]);
+            sscanf_s(&sig[i], "%hx", &real_sig[real_sig_size++]);
         }
     }
 
@@ -351,57 +341,47 @@ ud_mnemonic_code_t udx_insn_mnemonic(udx_t* udx, size_t addr) {
     return mnemonic;
 }
 
-size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, udx_addr_t** paddrs, size_t sample_radius, size_t sample_count, size_t* total_sample_count) {
+size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t addr_src, udx_addr_t** paddrs, size_t sample_radius, size_t sample_count) {
     udx_hashed_addr_t* hashed_addrs = NULL, * hashed_addr, * tmp;
     size_t sig_size, sig_length;
     udx_scan_result_t src_scan_result, dst_scan_result;
-
-    size_t count = 0, count_hit = 0;
-    ud_mnemonic_code_t mnemonic_src = udx_insn_mnemonic(udx_src, src_addr);
-
+    size_t count = 0;
+    ud_mnemonic_code_t mnemonic_src = udx_insn_mnemonic(udx_src, addr_src);
     udx_blk_t* blks;
-    size_t blks_length = udx_gen_blks_radius(udx_src, src_addr, &blks, sample_radius);
-    if (!blks_length) return 0;
+    size_t blks_count = udx_gen_blks_radius(udx_src, addr_src, &blks, sample_radius);
+    if (!blks_count) return 0;
     do {
-        sig_size = (blks_length + EXTRA_INSN_RADIUS) * AVERAGE_INSN_LENGTH * 3;
+        sig_size = (blks_count + EXTRA_INSN_RADIUS) * AVERAGE_INSN_LENGTH * 3;
         char* sig = (char*)malloc(sig_size);
         if (!sig) break;
-        while (count_hit < sample_count) {
-            if (!total_sample_count) {
-                if (++count > sample_count) break;
-            }
-            else {
-                *total_sample_count = ++count;
-            }
-            size_t rnd_insns_size = udx_rnd(RND_SIG_INSNS_SIZE_MIN, max(RND_SIG_INSNS_SIZE_MAX, blks_length));
-            size_t rnd_insns_start = udx_rnd(0, blks_length - rnd_insns_size);
-            int src_offset = (int)(src_addr - blks[rnd_insns_start].insn_addr);
-            sig_length = udx_blks_gen_sig_rnd(blks + rnd_insns_start, rnd_insns_size * sizeof(udx_blk_t), sig, sig_size, DEF_THRESHOLD_DISP, DEF_THRESHOLD_IMM);
+        while (count++ < sample_count) {
+            size_t addr_src_tmp;
+            sig_length = udx_gen_sig_blks_sample(blks, blks_count, sig, sig_size, DEF_THRESHOLD_DISP, DEF_THRESHOLD_IMM, &addr_src_tmp);
             if (!sig_length) {
                 //printf("Failed to generate signature...(%d, %d, %d)\n", rnd_insns_start, rnd_insns_size, blks_length);
                 continue;
             }
-            udx_scan_sig(udx_dst, sig, sig_length, &dst_scan_result);
+            int32_t src_offset = (int32_t)(addr_src - addr_src_tmp);
+            //printf("Signature for %08zX, offset: %08X\n%s\n", addr_src_tmp, src_offset, sig);
+            udx_scan_sig(udx_dst, sig, &dst_scan_result); 
+            //printf("Dst count: %zd\n", dst_scan_result.addrs_count); 
             if (dst_scan_result.addrs_count == 0 || dst_scan_result.addrs_count == sizeof(dst_scan_result.addrs) / sizeof(size_t)) continue;
-            udx_scan_sig(udx_src, sig, sig_length, &src_scan_result);
- 
-
+            udx_scan_sig(udx_src, sig, &src_scan_result);
+            //printf("Src count: %zd\n\n", src_scan_result.addrs_count);
             udx_addr_t* addrs_per_round;
-            size_t count_addrs_per_round = udx_migrate_scan_result(&src_scan_result, &dst_scan_result, blks[rnd_insns_start].insn_addr, &addrs_per_round);
+            size_t count_addrs_per_round = udx_migrate_scan_result(&src_scan_result, &dst_scan_result, addr_src_tmp, &addrs_per_round);
             if (!count_addrs_per_round) continue;
-
-            size_t current_sig_hit = 0;
+             
             for (size_t i = 0; i < count_addrs_per_round; i++)
             {
                 size_t addr_dst = addrs_per_round[i].address + src_offset;
-                if (udx_insn_mnemonic(udx_dst, addr_dst) != mnemonic_src) {
-                    //printf("Instruction opcode changed! %X->%X(%08zX)\n", mnemonic_src, udx_insn_mnemonic(udx_dst, addr_dst), addr_dst);
-                    continue;
-                }
-                current_sig_hit = 1;
+                //if (udx_insn_mnemonic(udx_dst, addr_dst) != mnemonic_src) {
+                //    //printf("Instruction opcode changed! %X->%X(%08zX) (%.2lf%%)\n", mnemonic_src,
+                //    //    udx_insn_mnemonic(udx_dst, addr_dst), addr_dst, addrs_per_round->similarity);
+                //    continue;
+                //}
                 printf("\nSignature hit [%zd : %zd] (%08zX, offset:%X) -> %08zX(%.2lf%%)\n%s\n\n",
-                    src_scan_result.addrs_count, dst_scan_result.addrs_count,
-                    blks[rnd_insns_start].insn_addr + src_offset,
+                    src_scan_result.addrs_count, dst_scan_result.addrs_count,addr_src_tmp + src_offset,
                     src_offset, addr_dst, addrs_per_round[i].similarity, sig);
                 hashed_addr = NULL;
                 HASH_FIND_INT(hashed_addrs, &addr_dst, hashed_addr);
@@ -419,7 +399,6 @@ size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, udx_addr_t**
                 }
             }
             udx_free(addrs_per_round);
-            count_hit += current_sig_hit;
         }
         free(sig);
     } while (0);
@@ -440,9 +419,4 @@ size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, udx_addr_t**
     }
     for (size_t i = 0; i < length_addrs; i++) (*paddrs)[i].prob = (*paddrs)[i].hit * (*paddrs)[i].similarity * 100 / prob_base;
     return length_addrs;
-}
-
-size_t ud_gen_sig(ud_t* u, char* sig_buffer, size_t sig_buffer_size, size_t match_lvl)
-{
-    return udx_blk_gen_sig(&u->blk, sig_buffer, sig_buffer_size, DEF_THRESHOLD_DISP, DEF_THRESHOLD_IMM, match_lvl);
 }

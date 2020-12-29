@@ -20,9 +20,9 @@ extern "C" {
 #define DEF_THRESHOLD_IMM 0x100
 
 #define RES_DISTANCE_DIMENSION 128
-#define RES_PROB_MIN 50.0 //%
+#define RES_PROB_MIN 30.0 //%
 
-#define RND_SIG_INSNS_SIZE_MIN 5
+#define RND_SIG_INSNS_SIZE_MIN 3
 #define RND_SIG_INSNS_SIZE_MAX 15
 
 #define EXTRA_INSN_RADIUS 16
@@ -75,19 +75,20 @@ uint64_t udx_abs(int64_t src);
 
 size_t udx_rnd(size_t a, size_t b);
 
-size_t udx_blk_gen_sig(udx_blk_t* blk, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t match_lvl);
+size_t ud_gen_sig(ud_t* u, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t match_lvl);
 
-size_t udx_blks_gen_sig(udx_blk_t* blks, size_t blks_size, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t match_lvl);
+size_t udx_gen_sig(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t insn_size, size_t match_lvl);
 
-size_t udx_blks_gen_sig_rnd(udx_blk_t* blks, size_t blks_size, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold);
+size_t udx_gen_sig_blk(udx_blk_t* blk, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t match_lvl);
+
+size_t udx_gen_sig_blks(udx_blk_t* blks, size_t blks_count, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t match_lvl);
+
+size_t udx_gen_sig_blks_sample(udx_blk_t* blks, size_t blks_count, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t* target_addr);
+
 
 size_t udx_gen_offsets(udx_t* udx, size_t target_addr, int32_t* offsets_buffer, size_t offsets_buffer_size, size_t count, size_t skip_count);
 
-size_t udx_gen_sig(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size, size_t insn_size, size_t match_lvl);
-
-size_t udx_gen_sig_rnd(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_buffer_size, size_t insn_size);
-
-size_t udx_scan_sig(udx_t* udx, char* sig_buffer, size_t sig_buffer_size, udx_scan_result_t* result);
+size_t udx_scan_sig(udx_t* udx, char* sig, udx_scan_result_t* result);
 
 size_t udx_gen_addr(size_t address, float similarity, udx_addr_t** paddr);
 
@@ -103,9 +104,7 @@ size_t udx_insn_count(udx_t* udx, size_t start_addr, size_t end_addr);
 
 ud_mnemonic_code_t udx_insn_mnemonic(udx_t* udx, size_t addr);
 
-size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, udx_addr_t** paddrs, size_t sample_radius, size_t sample_count, size_t* total_sample_count);
-
-size_t ud_gen_sig(ud_t* u, char* sig_buffer, size_t sig_buffer_size, size_t match_lvl);
+size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, udx_addr_t** paddrs, size_t sample_radius, size_t sample_count);
 
 #ifdef __cplusplus
 }
