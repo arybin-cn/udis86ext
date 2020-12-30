@@ -42,56 +42,72 @@ int main()
     udx_t udx_old;
     udx_init(&udx_old, buffer_old, file_size_old, 0x400000, 32);
     udx_t udx_new;
-    udx_init(&udx_new, buffer_new, file_size_new, 0x400000, 32);
+    udx_init(&udx_new, buffer_new, file_size_new, 0x400000, 32); 
 
-    size_t max_round_from = 100, max_round_to = 100;
-    size_t radius_from = 10, radius_to = 10;
+    //int32_t offsets[100];
+    //size_t noffsets = udx_gen_offsets_radius(&udx_new, 0x1DE8206, offsets, sizeof(offsets), 3);
+    //for (size_t i = 0; i < noffsets; i++)
+    //{
+    //    printf("(%d) %X\n", i + 1, offsets[i]);
+    //}
+    //}
 
-    for (size_t maxRound = max_round_from; maxRound <= max_round_from; maxRound++)
-    {
-        for (size_t radius = radius_from; radius <= radius_to; radius++)
-        {
-            size_t succeed_count = 0;
-            size_t failed_addr[TEST_COUNT];
-            size_t failed_addr_size = 0;
-            clock_t st = clock();
-            for (size_t i = 0; i < TEST_COUNT; i++)
-            {
-                udx_blk_t* blks;
-                size_t blks_length = udx_gen_blks(&udx_old, 0x401000 + (rand() * rand()) % (udx_old.mem_buffer_size / 2), &blks, 20, 0);
-                size_t src_addr = blks[blks_length - 2].insn_addr;
-                udx_addr_t* res; 
-                /*src_addr = 0x0894CFE;*/
-                printf("Start migrating for %08zX\n", src_addr);
-                size_t addrs_count = udx_migrate(&udx_old, &udx_new, src_addr, &res, radius, maxRound);
-                if (addrs_count) {
-                    succeed_count++;
-                    printf("Migrate for %08zX (%zd):\n", src_addr, addrs_count);
-                    for (size_t j = 0; j < addrs_count; j++)
-                    {
-                        printf("(%.2zd)\tAddr: %08zX\tSimilarity: %.2lf%%\tHit: %.2zd\tProb: %.2lf%%\n",
-                            j + 1, res[j].address, res[j].similarity, res[j].hit, res[j].prob);
-                    }
-                    /*system("pause");*/
-                    udx_free(res);
-                }
-                else {
-                    failed_addr[failed_addr_size++] = src_addr;
-                }
-                udx_free(blks);
-                system("pause");
-            }
-            clock_t et = clock();
-            double time_elapsed = (double)(et - st) / CLOCKS_PER_SEC / TEST_COUNT;
-            printf("Radius: %.3zd, MaxRound:%.3zd, Average Time Elapsed: %.3fs, Migrate Rate: %.3f (%zd/%d)\nFailed address(%zd): ",
-                radius, maxRound, time_elapsed, ((double)succeed_count) / TEST_COUNT, succeed_count, TEST_COUNT, failed_addr_size);
-            for (size_t i = 0; i < failed_addr_size; i++)
-            {
-                printf("%08zX ", failed_addr[i]);
-            }
-            printf("\n");
-        }
-    }
+    //udx_blk_t blks[100];
+    //size_t nblks = udx_gen_blks_radius(&udx_new, 0x01DE8250, blks, sizeof(blks), 30);
+    //for (size_t i = 0; i < nblks; i++)
+    //{
+    //    printf("(%d) %08zX\n", i + 1, blks[i].insn_addr);
+    //}
+
+
+    //size_t max_round_from = 100, max_round_to = 100;
+    //size_t radius_from = 10, radius_to = 10;
+
+    //for (size_t maxRound = max_round_from; maxRound <= max_round_from; maxRound++)
+    //{
+    //    for (size_t radius = radius_from; radius <= radius_to; radius++)
+    //    {
+    //        size_t succeed_count = 0;
+    //        size_t failed_addr[TEST_COUNT];
+    //        size_t failed_addr_size = 0;
+    //        clock_t st = clock();
+    //        for (size_t i = 0; i < TEST_COUNT; i++)
+    //        {
+    //            udx_blk_t* blks;
+    //            size_t blks_length /*= udx_gen_blks(&udx_old, 0x401000 + (rand() * rand()) % (udx_old.mem_buffer_size / 2), &blks, 20, 0)*/;
+    //            size_t src_addr = blks[blks_length - 2].insn_addr;
+    //            udx_addr_t* res; 
+    //            /*src_addr = 0x0894CFE;*/
+    //            printf("Start migrating for %08zX\n", src_addr);
+    //            size_t addrs_count /*= udx_migrate(&udx_old, &udx_new, src_addr, &res, radius, maxRound)*/;
+    //            if (addrs_count) {
+    //                succeed_count++;
+    //                printf("Migrate for %08zX (%zd):\n", src_addr, addrs_count);
+    //                for (size_t j = 0; j < addrs_count; j++)
+    //                {
+    //                    printf("(%.2zd)\tAddr: %08zX\tStability: %.2lf%%\tHit: %.2zd\tProb: %.2lf%%\n",
+    //                        j + 1, res[j].address, res[j].stability, res[j].hit, res[j].prob);
+    //                }
+    //                /*system("pause");*/
+    //                udx_free(res);
+    //            }
+    //            else {
+    //                failed_addr[failed_addr_size++] = src_addr;
+    //            }
+    //            udx_free(blks);
+    //            system("pause");
+    //        }
+    //        clock_t et = clock();
+    //        double time_elapsed = (double)(et - st) / CLOCKS_PER_SEC / TEST_COUNT;
+    //        printf("Radius: %.3zd, MaxRound:%.3zd, Average Time Elapsed: %.3fs, Migrate Rate: %.3f (%zd/%d)\nFailed address(%zd): ",
+    //            radius, maxRound, time_elapsed, ((double)succeed_count) / TEST_COUNT, succeed_count, TEST_COUNT, failed_addr_size);
+    //        for (size_t i = 0; i < failed_addr_size; i++)
+    //        {
+    //            printf("%08zX ", failed_addr[i]);
+    //        }
+    //        printf("\n");
+    //    }
+    //}
 
 
     free(buffer_old);

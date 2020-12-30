@@ -7,6 +7,7 @@ extern "C" {
 #endif
 
 #define ARYBIN 0x46724672
+#define UD_Iall UD_MAX_MNEMONIC_CODE
 
 #define UD_MATCH_NONE 0
 #define UD_MATCH_LOW 1
@@ -46,14 +47,14 @@ typedef struct {
 typedef struct {
     size_t address;
     size_t hit;
-    float similarity;
+    float stability;
     float prob;
 }udx_addr_t;
 
 typedef struct {
     size_t address;
     size_t hit;
-    float similarity;
+    float stability;
     UT_hash_handle hh;
 }udx_hashed_addr_t;
 
@@ -85,26 +86,33 @@ size_t udx_gen_sig_blks(udx_blk_t* blks, size_t blks_count, char* sig_buffer, si
 
 size_t udx_gen_sig_blks_sample(udx_blk_t* blks, size_t blks_count, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t* target_addr);
 
+size_t udx_gen_offsets(udx_t* udx, size_t target_addr, int32_t* offsets_buffer, size_t offsets_buffer_size, size_t count);
 
-size_t udx_gen_offsets(udx_t* udx, size_t target_addr, int32_t* offsets_buffer, size_t offsets_buffer_size, size_t count, size_t skip_count);
+size_t udx_gen_offsets_radius(udx_t* udx, size_t target_addr, int32_t* offsets_buffer, size_t offsets_buffer_size, size_t radius);
 
 size_t udx_scan_sig(udx_t* udx, char* sig, udx_scan_result_t* result);
 
-size_t udx_gen_addr(size_t address, float similarity, udx_addr_t** paddr);
+size_t udx_gen_addr(size_t address, float stability, udx_addr_t* addr);
 
-size_t udx_gen_hashed_addr(size_t address, float similarity, udx_hashed_addr_t** paddr);
+size_t udx_gen_hashed_addr(size_t address, float stability, udx_hashed_addr_t* addr);
 
-size_t udx_migrate_scan_result(udx_t* udx_src, size_t addr_src, udx_scan_result_t* res_dst, udx_addr_t** paddrs);
+size_t udx_migrate_scan_result(udx_t* udx_src, size_t addr_src, udx_scan_result_t* res_dst, udx_addr_t* addrs_buffer, size_t addrs_buffer_size);
 
-size_t udx_gen_blks(udx_t* udx, size_t target_addr, udx_blk_t** pblks, size_t insns_count, size_t skip_count);
+size_t udx_gen_blks(udx_t* udx, size_t target_addr, udx_blk_t* blks_buffer, size_t blks_buffer_size, size_t insns_count);
 
-size_t udx_gen_blks_radius(udx_t* udx, size_t target_addr, udx_blk_t** pblks, size_t insns_count_radius);
+size_t udx_gen_blks_radius(udx_t* udx, size_t target_addr, udx_blk_t* blks_buffer, size_t blks_buffer_size, size_t radius);
 
-size_t udx_insn_count(udx_t* udx, size_t start_addr, size_t end_addr);
+size_t udx_insn_count(udx_t* udx, size_t start_addr, size_t end_addr, ud_mnemonic_code_t mnemonic);
+
+size_t udx_insn_reverse_of(udx_t* udx, size_t end_addr, size_t reversed_insn_count, ud_mnemonic_code_t mnemonic);
+
+size_t udx_insn_reverse(udx_t* udx, size_t end_addr, size_t reversed_insn_count);
+
+size_t udx_insn_align(udx_t* udx, size_t target_addr);
 
 ud_mnemonic_code_t udx_insn_mnemonic(udx_t* udx, size_t addr);
 
-size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, udx_addr_t** paddrs, size_t sample_radius, size_t sample_count);
+//size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, udx_addr_t** paddrs, size_t sample_radius, size_t sample_count);
 
 #ifdef __cplusplus
 }

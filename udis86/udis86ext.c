@@ -154,17 +154,13 @@ size_t udx_gen_sig_blks_sample(udx_blk_t* blks, size_t blks_count, char* sig_buf
     return sig_length;
 }
 
-size_t udx_gen_offsets(udx_t* udx, size_t target_addr, int32_t* offsets_buffer, size_t offsets_buffer_size, size_t count, size_t skip_count) {
+size_t udx_gen_offsets(udx_t* udx, size_t target_addr, int32_t* offsets_buffer, size_t offsets_buffer_size, size_t count) {
     if (offsets_buffer_size / sizeof(int32_t) < count) return 0;
     ud_t ud;
     udx_init_ud(udx, &ud, target_addr);
 
     size_t length = 0;
     while (length < count && ud_disassemble(&ud)) {
-        if (skip_count > 0) {
-            skip_count--;
-            continue;
-        }
         if (ud_insn_mnemonic(&ud) == UD_Icall) {
             if (ud.blk.have_imm) {
                 offsets_buffer[length++] = (int32_t)ud.blk.imm;
@@ -178,6 +174,12 @@ size_t udx_gen_offsets(udx_t* udx, size_t target_addr, int32_t* offsets_buffer, 
     return length;
 }
 
+size_t udx_gen_offsets_radius(udx_t* udx, size_t target_addr, int32_t* offsets_buffer, size_t offsets_buffer_size, size_t radius) {
+    size_t offsets_count = radius * 2;
+    if (radius < 1 || (offsets_buffer_size / sizeof(int32_t)) < offsets_count) return 0;
+    size_t start_addr = udx_insn_reverse_of(udx, target_addr, radius, UD_Icall);
+    return udx_gen_offsets(udx, start_addr, offsets_buffer, offsets_buffer_size, offsets_count);
+}
 
 size_t udx_scan_sig(udx_t* udx, char* sig, udx_scan_result_t* result) {
     if (!result) return 0;
@@ -221,40 +223,35 @@ size_t udx_scan_sig(udx_t* udx, char* sig, udx_scan_result_t* result) {
     return result->addrs_count;
 }
 
-size_t udx_gen_addr(size_t address, float similarity, udx_addr_t** paddr) {
-    udx_addr_t* addr = (udx_addr_t*)malloc(sizeof(udx_addr_t));
-    if (!addr) return 0;
+size_t udx_gen_addr(size_t address, float stability, udx_addr_t* addr) { 
     addr->address = address;
-    addr->similarity = similarity;
+    addr->stability = stability;
     addr->hit = 1;
-    *paddr = addr;
-    return 1;
-}
-size_t udx_gen_hashed_addr(size_t address, float similarity, udx_hashed_addr_t** paddr) {
-    udx_hashed_addr_t* addr = (udx_hashed_addr_t*)malloc(sizeof(udx_hashed_addr_t));
-    if (!addr) return 0;
-    addr->address = address;
-    addr->similarity = similarity;
-    addr->hit = 1;
-    *paddr = addr;
     return 1;
 }
 
-size_t udx_migrate_scan_result(udx_t* udx_src, size_t addr_src, udx_scan_result_t* res_dst, udx_addr_t** paddrs) {
+size_t udx_gen_hashed_addr(size_t address, float stability, udx_hashed_addr_t* addr) {
+    addr->address = address;
+    addr->stability = stability;
+    addr->hit = 1;
+    return 1;
+}
+
+size_t udx_migrate_scan_result(udx_t* udx_src, size_t addr_src, udx_scan_result_t* res_dst, udx_addr_t* addrs_buffer, size_t addrs_buffer_size) {
+    if (addrs_buffer_size / sizeof(udx_addr_t) < 1) return 0;
     if (res_dst->addrs_count == 0) return 0;
-    if (res_dst->addrs_count == 1) return udx_gen_addr(res_dst->addrs[0], 100.0f, paddrs);
+    if (res_dst->addrs_count == 1) return udx_gen_addr(res_dst->addrs[0], 100.0f, addrs_buffer);
     udx_t* udx_dst = res_dst->udx;
     size_t addr_dst = 0;
     double distance_min = DBL_MAX, distance_tmp, distance_avg = 0, tmp, correct_rate;
 
     int32_t origin_offsets[RES_DISTANCE_DIMENSION], tmp_offsets[RES_DISTANCE_DIMENSION];
-    if (!udx_gen_offsets(udx_src, addr_src - (AVERAGE_DISTANCE_BETWEEN_CALLS * RES_DISTANCE_DIMENSION / 2),
-        origin_offsets, sizeof(origin_offsets), RES_DISTANCE_DIMENSION, EXTRA_INSN_RADIUS)) {
+     
+    if (!udx_gen_offsets_radius(udx_src, addr_src, origin_offsets, sizeof(origin_offsets), RES_DISTANCE_DIMENSION / 2)) {
         return 0;
     }
     for (size_t i = 0; i < res_dst->addrs_count; i++) {
-        if (!udx_gen_offsets(udx_dst, res_dst->addrs[i] - (AVERAGE_DISTANCE_BETWEEN_CALLS * RES_DISTANCE_DIMENSION / 2),
-            tmp_offsets, sizeof(tmp_offsets), RES_DISTANCE_DIMENSION, EXTRA_INSN_RADIUS)) {
+        if (!udx_gen_offsets_radius(udx_dst, res_dst->addrs[i], tmp_offsets, sizeof(tmp_offsets), RES_DISTANCE_DIMENSION / 2)) {
             continue;
         }
         distance_tmp = 0;
@@ -272,54 +269,71 @@ size_t udx_migrate_scan_result(udx_t* udx_src, size_t addr_src, udx_scan_result_
     distance_avg /= res_dst->addrs_count;
     correct_rate = (distance_avg - distance_min) * 100 / distance_avg;
     if (correct_rate < RES_PROB_MIN) return 0;
-    return udx_gen_addr(addr_dst, (float)correct_rate, paddrs);
+    return udx_gen_addr(addr_dst, (float)correct_rate, addrs_buffer);
 }
 
-
-size_t udx_gen_blks(udx_t* udx, size_t target_addr, udx_blk_t** pblks, size_t insns_count, size_t skip_count) {
-    if (insns_count < 1) return 0;
-    *pblks = 0;
+size_t udx_gen_blks(udx_t* udx, size_t target_addr, udx_blk_t* blks_buffer, size_t blks_buffer_size, size_t insns_count) {
+    if (insns_count < 1 || (blks_buffer_size / sizeof(udx_blk_t)) < insns_count) return 0;
     size_t blks_count_generated = 0;
-    udx_blk_t* blks = (udx_blk_t*)malloc(insns_count * sizeof(udx_blk_t));
-    if (!blks) return 0;
     ud_t ud;
     udx_init_ud(udx, &ud, target_addr);
     while (ud_disassemble(&ud)) {
-        if (skip_count > 0) {
-            skip_count--;
-            continue;
-        }
-        memcpy_s(blks + (blks_count_generated++), sizeof(udx_blk_t), &ud.blk, sizeof(udx_blk_t));
+        memcpy_s(blks_buffer + (blks_count_generated++), sizeof(udx_blk_t), &ud.blk, sizeof(udx_blk_t));
         if (blks_count_generated >= insns_count) break;
     }
-    if (blks_count_generated != insns_count) {
-        udx_free(blks);
-        return 0;
-    }
-
-    *pblks = blks;
+    if (blks_count_generated != insns_count) return 0;
     return blks_count_generated;
 }
-size_t udx_gen_blks_radius(udx_t* udx, size_t target_addr, udx_blk_t** pblks, size_t insns_count_radius) {
-    if (insns_count_radius < 1) return 0;
-    size_t target_addr_start = target_addr - AVERAGE_INSN_LENGTH * (insns_count_radius + EXTRA_INSN_RADIUS), addr_count;
-    while ((addr_count = udx_insn_count(udx, target_addr_start, target_addr)) < insns_count_radius + EXTRA_INSN_RADIUS)
-        target_addr_start -= AVERAGE_INSN_LENGTH * EXTRA_INSN_RADIUS;
-    return udx_gen_blks(udx, target_addr_start, pblks, insns_count_radius * 2 + 1, addr_count - insns_count_radius);
+
+size_t udx_gen_blks_radius(udx_t* udx, size_t target_addr, udx_blk_t* blks_buffer, size_t blks_buffer_size, size_t radius) {
+    size_t insns_count = radius * 2 + 1;
+    if (radius < 1 || (blks_buffer_size / sizeof(udx_blk_t)) < insns_count) return 0;
+    size_t start_addr = udx_insn_reverse(udx, target_addr, radius);
+    return udx_gen_blks(udx, start_addr, blks_buffer, blks_buffer_size, insns_count);
 }
 
-//return number of insns in [start_addr, end_addr)
-size_t udx_insn_count(udx_t* udx, size_t start_addr, size_t end_addr) {
+size_t udx_insn_count(udx_t* udx, size_t start_addr, size_t end_addr, ud_mnemonic_code_t mnemonic) {
     if (start_addr >= end_addr) return 0;
     ud_t ud;
     udx_init_ud(udx, &ud, start_addr);
     size_t insns_size = 0;
     while (ud_disassemble(&ud)) {
-        insns_size++;
         start_addr += ud_insn_len(&ud);
-        if (start_addr >= end_addr) break;
+        if (start_addr > end_addr) break;
+        if (mnemonic == UD_Iall || mnemonic == ud_insn_mnemonic(&ud)) insns_size++;
     }
     return insns_size;
+}
+
+size_t udx_insn_reverse_of(udx_t* udx, size_t end_addr, size_t reversed_insn_count, ud_mnemonic_code_t mnemonic) {
+    size_t start_addr = end_addr - AVERAGE_INSN_LENGTH * (EXTRA_INSN_RADIUS + reversed_insn_count), insn_count;
+    while ((insn_count = udx_insn_count(udx, start_addr, end_addr, mnemonic)) <= EXTRA_INSN_RADIUS + reversed_insn_count)
+        start_addr -= AVERAGE_INSN_LENGTH * EXTRA_INSN_RADIUS;
+    size_t skip_count = insn_count - reversed_insn_count;
+    ud_t ud;
+    udx_init_ud(udx, &ud, start_addr);
+    while (ud_disassemble(&ud)) {
+        if (mnemonic == UD_Iall || mnemonic == ud_insn_mnemonic(&ud)) {
+            if (skip_count > 0) {
+                skip_count--;
+                continue;
+            }
+            break;
+        }
+    }
+    return ud_insn_off(&ud);
+}
+
+size_t udx_insn_reverse(udx_t* udx, size_t end_addr, size_t reversed_insn_count) {
+    return udx_insn_reverse_of(udx, end_addr, reversed_insn_count, UD_Iall);
+}
+
+size_t udx_insn_align(udx_t* udx, size_t target_addr) {
+    return udx_insn_reverse(udx, target_addr, 0);
+}
+
+size_t udx_insn_search(udx_t* udx, size_t target_addr, ud_mnemonic_code_t insn_mnemonic, int32_t direction) {
+
 }
 
 ud_mnemonic_code_t udx_insn_mnemonic(udx_t* udx, size_t addr) {
@@ -332,79 +346,79 @@ ud_mnemonic_code_t udx_insn_mnemonic(udx_t* udx, size_t addr) {
     return mnemonic;
 }
 
-size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t addr_src, udx_addr_t** paddrs, size_t sample_radius, size_t sample_count) {
-    udx_hashed_addr_t* hashed_addrs = NULL, * hashed_addr, * tmp;
-    size_t sig_size, sig_length;
-    udx_scan_result_t dst_scan_result;
-    size_t count = 0;
-    ud_mnemonic_code_t mnemonic_src = udx_insn_mnemonic(udx_src, addr_src);
-    udx_blk_t* blks;
-    size_t blks_count = udx_gen_blks_radius(udx_src, addr_src, &blks, sample_radius);
-    if (!blks_count) return 0;
-    do {
-        sig_size = (blks_count + EXTRA_INSN_RADIUS) * AVERAGE_INSN_LENGTH * 3;
-        char* sig = (char*)malloc(sig_size);
-        if (!sig) break;
-        while (count++ < sample_count) {
-            size_t addr_src_tmp;
-            sig_length = udx_gen_sig_blks_sample(blks, blks_count, sig, sig_size, DEF_THRESHOLD_DISP, DEF_THRESHOLD_IMM, &addr_src_tmp);
-            if (!sig_length) {
-                //printf("Failed to generate signature...(%d, %d, %d)\n", rnd_insns_start, rnd_insns_size, blks_length);
-                continue;
-            }
-            int32_t src_offset = (int32_t)(addr_src - addr_src_tmp);
-
-            udx_scan_sig(udx_dst, sig, &dst_scan_result); 
-            if (dst_scan_result.addrs_count == 0 || dst_scan_result.addrs_count == sizeof(dst_scan_result.addrs) / sizeof(size_t)) continue;
-             
-            udx_addr_t* addrs_per_round;
-            size_t count_addrs_per_round = udx_migrate_scan_result(udx_src, addr_src_tmp, &dst_scan_result, &addrs_per_round);
-            if (!count_addrs_per_round) continue;
-
-             
-            for (size_t i = 0; i < count_addrs_per_round; i++)
-            {
-                size_t addr_dst = addrs_per_round[i].address + src_offset;
-                if (udx_insn_mnemonic(udx_dst, addr_dst) != mnemonic_src) {
-                    printf("Instruction opcode changed! %X->%X(%08zX) (%.2lf%%)\n", mnemonic_src,
-                        udx_insn_mnemonic(udx_dst, addr_dst), addr_dst, addrs_per_round->similarity);
-                    continue;
-                }
-                printf("\nSignature hit [? : %zd] (%08zX, offset:%X) -> %08zX(%.2lf%%)\n%s\n\n",
-                    dst_scan_result.addrs_count, addr_src_tmp + src_offset,
-                    src_offset, addr_dst, addrs_per_round[i].similarity, sig);
-                hashed_addr = NULL;
-                HASH_FIND_INT(hashed_addrs, &addr_dst, hashed_addr);
-                if (hashed_addr) { 
-                    hashed_addr->similarity = (hashed_addr->similarity * hashed_addr->hit + addrs_per_round[i].similarity * addrs_per_round[i].hit)
-                        / (hashed_addr->hit + addrs_per_round[i].hit);
-                    hashed_addr->hit += addrs_per_round[i].hit;
-                }
-                else {
-                    udx_gen_hashed_addr(addr_dst, addrs_per_round[i].similarity, &hashed_addr);
-                    if (!hashed_addr) continue;
-                    HASH_ADD_INT(hashed_addrs, address, hashed_addr);
-                }
-            }
-            udx_free(addrs_per_round);
-        }
-        free(sig);
-    } while (0);
-    udx_free(blks);
-
-    size_t count_addrs = HASH_CNT(hh, hashed_addrs), length_addrs = 0;
-    *paddrs = (udx_addr_t*)malloc(count_addrs * sizeof(udx_addr_t));
-    if (!*paddrs) return 0;
-    float prob_base = 0;
-    HASH_ITER(hh, hashed_addrs, hashed_addr, tmp) {
-        HASH_DEL(hashed_addrs, hashed_addr);
-        (*paddrs)[length_addrs].address = hashed_addr->address;
-        (*paddrs)[length_addrs].hit = hashed_addr->hit;
-        (*paddrs)[length_addrs].similarity = hashed_addr->similarity;
-        length_addrs++;
-        prob_base += hashed_addr->hit * hashed_addr->similarity;
-        udx_free(hashed_addr);
-    }
-    for (size_t i = 0; i < length_addrs; i++) (*paddrs)[i].prob = (*paddrs)[i].hit * (*paddrs)[i].similarity * 100 / prob_base;
-    return length_addrs;
-}
+//size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t addr_src, udx_addr_t** paddrs, size_t sample_radius, size_t sample_count) {
+//    udx_hashed_addr_t* hashed_addrs = NULL, * hashed_addr, * tmp;
+//    size_t sig_size, sig_length;
+//    udx_scan_result_t dst_scan_result;
+//    size_t count = 0;
+//    ud_mnemonic_code_t mnemonic_src = udx_insn_mnemonic(udx_src, addr_src);
+//    udx_blk_t* blks;
+//    size_t blks_count = udx_gen_blks_radius(udx_src, addr_src, &blks, sample_radius);
+//    if (!blks_count) return 0;
+//    do {
+//        sig_size = (blks_count + EXTRA_INSN_RADIUS) * AVERAGE_INSN_LENGTH * 3;
+//        char* sig = (char*)malloc(sig_size);
+//        if (!sig) break;
+//        while (count++ < sample_count) {
+//            size_t addr_src_tmp;
+//            sig_length = udx_gen_sig_blks_sample(blks, blks_count, sig, sig_size, DEF_THRESHOLD_DISP, DEF_THRESHOLD_IMM, &addr_src_tmp);
+//            if (!sig_length) {
+//                //printf("Failed to generate signature...(%d, %d, %d)\n", rnd_insns_start, rnd_insns_size, blks_length);
+//                continue;
+//            }
+//            int32_t src_offset = (int32_t)(addr_src - addr_src_tmp);
+//
+//            udx_scan_sig(udx_dst, sig, &dst_scan_result); 
+//            if (dst_scan_result.addrs_count == 0 || dst_scan_result.addrs_count == sizeof(dst_scan_result.addrs) / sizeof(size_t)) continue;
+//             
+//            udx_addr_t* addrs_per_round;
+//            size_t count_addrs_per_round = udx_migrate_scan_result(udx_src, addr_src_tmp, &dst_scan_result, &addrs_per_round);
+//            if (!count_addrs_per_round) continue;
+//
+//             
+//            for (size_t i = 0; i < count_addrs_per_round; i++)
+//            {
+//                size_t addr_dst = addrs_per_round[i].address + src_offset;
+//                if (udx_insn_mnemonic(udx_dst, addr_dst) != mnemonic_src) {
+//                    printf("Instruction opcode changed! %X->%X(%08zX) (%.2lf%%)\n", mnemonic_src,
+//                        udx_insn_mnemonic(udx_dst, addr_dst), addr_dst, addrs_per_round->stability);
+//                    continue;
+//                }
+//                printf("\nSignature hit [? : %zd] (%08zX, offset:%X) -> %08zX(%.2lf%%)\n%s\n\n",
+//                    dst_scan_result.addrs_count, addr_src_tmp + src_offset,
+//                    src_offset, addr_dst, addrs_per_round[i].stability, sig);
+//                hashed_addr = NULL;
+//                HASH_FIND_INT(hashed_addrs, &addr_dst, hashed_addr);
+//                if (hashed_addr) { 
+//                    hashed_addr->stability = (hashed_addr->stability * hashed_addr->hit + addrs_per_round[i].stability * addrs_per_round[i].hit)
+//                        / (hashed_addr->hit + addrs_per_round[i].hit);
+//                    hashed_addr->hit += addrs_per_round[i].hit;
+//                }
+//                else {
+//                    udx_gen_hashed_addr(addr_dst, addrs_per_round[i].stability, &hashed_addr);
+//                    if (!hashed_addr) continue;
+//                    HASH_ADD_INT(hashed_addrs, address, hashed_addr);
+//                }
+//            }
+//            udx_free(addrs_per_round);
+//        }
+//        free(sig);
+//    } while (0);
+//    udx_free(blks);
+//
+//    size_t count_addrs = HASH_CNT(hh, hashed_addrs), length_addrs = 0;
+//    *paddrs = (udx_addr_t*)malloc(count_addrs * sizeof(udx_addr_t));
+//    if (!*paddrs) return 0;
+//    float prob_base = 0;
+//    HASH_ITER(hh, hashed_addrs, hashed_addr, tmp) {
+//        HASH_DEL(hashed_addrs, hashed_addr);
+//        (*paddrs)[length_addrs].address = hashed_addr->address;
+//        (*paddrs)[length_addrs].hit = hashed_addr->hit;
+//        (*paddrs)[length_addrs].stability = hashed_addr->stability;
+//        length_addrs++;
+//        prob_base += hashed_addr->hit * hashed_addr->stability;
+//        udx_free(hashed_addr);
+//    }
+//    for (size_t i = 0; i < length_addrs; i++) (*paddrs)[i].prob = (*paddrs)[i].hit * (*paddrs)[i].stability * 100 / prob_base;
+//    return length_addrs;
+//}
