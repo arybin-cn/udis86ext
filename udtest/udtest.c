@@ -2,8 +2,7 @@
 
 #include <string.h>
 #include <time.h>
-#include <stdlib.h>
-#include <cstdint>
+#include <stdlib.h> 
 
 #define DUMP_FILE_FROM "..\\Res\\CMS168.1.CEM"
 #define DUMP_FILE_TO "..\\Res\\CMS176.1.CEM"
@@ -48,9 +47,8 @@ int main()
     //size_t noffsets = udx_gen_offsets_radius(&udx_new, 0x1DE8206, offsets, sizeof(offsets), 3);
     //for (size_t i = 0; i < noffsets; i++)
     //{
-    //    printf("(%d) %X\n", i + 1, offsets[i]);
-    //}
-    //}
+    //    printf("(%zd) %X\n", i + 1, offsets[i]);
+    //} 
 
     //udx_blk_t blks[100];
     //size_t nblks = udx_gen_blks_radius(&udx_new, 0x01DE8250, blks, sizeof(blks), 30);
