@@ -240,24 +240,15 @@ size_t udx_gen_hashed_addr(size_t address, float similarity, udx_hashed_addr_t**
     return 1;
 }
 
-size_t udx_migrate_scan_result(udx_scan_result_t* res_src, udx_scan_result_t* res_dst, size_t addr_src, udx_addr_t** paddrs) {
-    size_t addr_src_index = ARYBIN;
-    for (size_t i = 0; i < res_src->addrs_count; i++) {
-        if (res_src->addrs[i] == addr_src) {
-            addr_src_index = i;
-            break;
-        }
-    }
-    if (addr_src_index == ARYBIN) return 0;
+size_t udx_migrate_scan_result(udx_t* udx_src, size_t addr_src, udx_scan_result_t* res_dst, udx_addr_t** paddrs) {
     if (res_dst->addrs_count == 0) return 0;
-    //if (res_dst->addrs_count == res_src->addrs_count) return udx_gen_addr(res_dst->addrs[addr_src_index], 100.0, paddrs);
-
-    udx_t* udx_src = res_src->udx, * udx_dst = res_dst->udx;
-    size_t src_addr = res_src->addrs[addr_src_index], dst_addr = 0;
+    if (res_dst->addrs_count == 1) return udx_gen_addr(res_dst->addrs[0], 100.0f, paddrs);
+    udx_t* udx_dst = res_dst->udx;
+    size_t addr_dst = 0;
     double distance_min = DBL_MAX, distance_tmp, distance_avg = 0, tmp, correct_rate;
 
     int32_t origin_offsets[RES_DISTANCE_DIMENSION], tmp_offsets[RES_DISTANCE_DIMENSION];
-    if (!udx_gen_offsets(udx_src, src_addr - (AVERAGE_DISTANCE_BETWEEN_CALLS * RES_DISTANCE_DIMENSION / 2),
+    if (!udx_gen_offsets(udx_src, addr_src - (AVERAGE_DISTANCE_BETWEEN_CALLS * RES_DISTANCE_DIMENSION / 2),
         origin_offsets, sizeof(origin_offsets), RES_DISTANCE_DIMENSION, EXTRA_INSN_RADIUS)) {
         return 0;
     }
@@ -273,7 +264,7 @@ size_t udx_migrate_scan_result(udx_scan_result_t* res_src, udx_scan_result_t* re
         }
         if (distance_tmp < distance_min) {
             distance_min = distance_tmp;
-            dst_addr = res_dst->addrs[i];
+            addr_dst = res_dst->addrs[i];
         }
         distance_avg += distance_tmp;
         ///printf("(%.4zd) %08zX->%.2lf\n", i, res_dst->addrs[i], distance_tmp);
@@ -281,7 +272,7 @@ size_t udx_migrate_scan_result(udx_scan_result_t* res_src, udx_scan_result_t* re
     distance_avg /= res_dst->addrs_count;
     correct_rate = (distance_avg - distance_min) * 100 / distance_avg;
     if (correct_rate < RES_PROB_MIN) return 0;
-    return udx_gen_addr(dst_addr, (float)correct_rate, paddrs);
+    return udx_gen_addr(addr_dst, (float)correct_rate, paddrs);
 }
 
 
@@ -344,7 +335,7 @@ ud_mnemonic_code_t udx_insn_mnemonic(udx_t* udx, size_t addr) {
 size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t addr_src, udx_addr_t** paddrs, size_t sample_radius, size_t sample_count) {
     udx_hashed_addr_t* hashed_addrs = NULL, * hashed_addr, * tmp;
     size_t sig_size, sig_length;
-    udx_scan_result_t src_scan_result, dst_scan_result;
+    udx_scan_result_t dst_scan_result;
     size_t count = 0;
     ud_mnemonic_code_t mnemonic_src = udx_insn_mnemonic(udx_src, addr_src);
     udx_blk_t* blks;
@@ -365,9 +356,9 @@ size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t addr_src, udx_addr_t**
 
             udx_scan_sig(udx_dst, sig, &dst_scan_result); 
             if (dst_scan_result.addrs_count == 0 || dst_scan_result.addrs_count == sizeof(dst_scan_result.addrs) / sizeof(size_t)) continue;
-            udx_scan_sig(udx_src, sig, &src_scan_result);
+             
             udx_addr_t* addrs_per_round;
-            size_t count_addrs_per_round = udx_migrate_scan_result(&src_scan_result, &dst_scan_result, addr_src_tmp, &addrs_per_round);
+            size_t count_addrs_per_round = udx_migrate_scan_result(udx_src, addr_src_tmp, &dst_scan_result, &addrs_per_round);
             if (!count_addrs_per_round) continue;
 
              
@@ -379,8 +370,8 @@ size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t addr_src, udx_addr_t**
                         udx_insn_mnemonic(udx_dst, addr_dst), addr_dst, addrs_per_round->similarity);
                     continue;
                 }
-                printf("\nSignature hit [%zd : %zd] (%08zX, offset:%X) -> %08zX(%.2lf%%)\n%s\n\n",
-                    src_scan_result.addrs_count, dst_scan_result.addrs_count,addr_src_tmp + src_offset,
+                printf("\nSignature hit [? : %zd] (%08zX, offset:%X) -> %08zX(%.2lf%%)\n%s\n\n",
+                    dst_scan_result.addrs_count, addr_src_tmp + src_offset,
                     src_offset, addr_dst, addrs_per_round[i].similarity, sig);
                 hashed_addr = NULL;
                 HASH_FIND_INT(hashed_addrs, &addr_dst, hashed_addr);

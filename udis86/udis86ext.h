@@ -94,7 +94,7 @@ size_t udx_gen_addr(size_t address, float similarity, udx_addr_t** paddr);
 
 size_t udx_gen_hashed_addr(size_t address, float similarity, udx_hashed_addr_t** paddr);
 
-size_t udx_migrate_scan_result(udx_scan_result_t* res_src, udx_scan_result_t* res_dst, size_t addr_src, udx_addr_t** paddrs);
+size_t udx_migrate_scan_result(udx_t* udx_src, size_t addr_src, udx_scan_result_t* res_dst, udx_addr_t** paddrs);
 
 size_t udx_gen_blks(udx_t* udx, size_t target_addr, udx_blk_t** pblks, size_t insns_count, size_t skip_count);
 
