@@ -305,11 +305,36 @@ size_t udx_insn_count(udx_t* udx, size_t start_addr, size_t end_addr, ud_mnemoni
     return insns_size;
 }
 
+size_t udx_insn_align(udx_t* udx, size_t target_addr) {
+    size_t start_addr = target_addr - AVERAGE_INSN_LENGTH * PROBE_INSN_COUNT, insn_count;
+    while ((insn_count = udx_insn_count(udx, start_addr, target_addr, UD_Iall)) <= PROBE_INSN_COUNT)
+        start_addr -= AVERAGE_INSN_LENGTH * PROBE_INSN_COUNT;
+    ud_t ud;
+    udx_init_ud(udx, &ud, start_addr);
+    while (ud_disassemble(&ud)) {
+        if (insn_count > 0) {
+            insn_count--;
+            continue;
+        }
+        break;
+    }
+    return ud_insn_off(&ud);
+}
+
 size_t udx_insn_reverse_of(udx_t* udx, size_t end_addr, size_t reversed_insn_count, ud_mnemonic_code_t mnemonic) {
-    size_t start_addr = end_addr - AVERAGE_INSN_LENGTH * (EXTRA_INSN_RADIUS + reversed_insn_count), insn_count;
-    while ((insn_count = udx_insn_count(udx, start_addr, end_addr, mnemonic)) <= EXTRA_INSN_RADIUS + reversed_insn_count)
-        start_addr -= AVERAGE_INSN_LENGTH * EXTRA_INSN_RADIUS;
-    size_t skip_count = insn_count - reversed_insn_count;
+    size_t start_addr = end_addr, insn_count, skip_count = ARYBIN;
+    while (start_addr > udx->load_base) {
+        start_addr = start_addr - AVERAGE_INSN_LENGTH * PROBE_INSN_COUNT;
+        start_addr = udx_insn_align(udx, start_addr);
+        insn_count = udx_insn_count(udx, start_addr, end_addr, mnemonic);
+        if (insn_count >= reversed_insn_count) {
+            skip_count = insn_count - reversed_insn_count;
+            break;
+        }
+        end_addr = start_addr;
+        reversed_insn_count -= insn_count;
+    }
+    if (skip_count == ARYBIN) return 0;
     ud_t ud;
     udx_init_ud(udx, &ud, start_addr);
     while (ud_disassemble(&ud)) {
@@ -328,12 +353,17 @@ size_t udx_insn_reverse(udx_t* udx, size_t end_addr, size_t reversed_insn_count)
     return udx_insn_reverse_of(udx, end_addr, reversed_insn_count, UD_Iall);
 }
 
-size_t udx_insn_align(udx_t* udx, size_t target_addr) {
-    return udx_insn_reverse(udx, target_addr, 0);
-}
-
-size_t udx_insn_search(udx_t* udx, size_t target_addr, ud_mnemonic_code_t insn_mnemonic, int32_t direction) {
-
+size_t udx_insn_search(udx_t* udx, size_t target_addr, ud_mnemonic_code_t mnemonic, int32_t direction) {
+    if (direction == 0) return udx_insn_align(udx, target_addr);
+    if (direction < 0) return udx_insn_reverse_of(udx, target_addr, -direction, mnemonic);
+    size_t start_addr = udx_insn_align(udx, target_addr);
+    ud_t ud;
+    udx_init_ud(udx, &ud, start_addr);
+    ud_disassemble(&ud); //skip current
+    while (direction > 0 && ud_disassemble(&ud)) {
+        if (mnemonic == UD_Iall || mnemonic == ud_insn_mnemonic(&ud)) direction--;
+    }
+    return ud_insn_off(&ud);
 }
 
 ud_mnemonic_code_t udx_insn_mnemonic(udx_t* udx, size_t addr) {

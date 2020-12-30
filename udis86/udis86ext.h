@@ -26,9 +26,8 @@ extern "C" {
 #define RND_SIG_INSNS_SIZE_MIN 3
 #define RND_SIG_INSNS_SIZE_MAX 15
 
-#define EXTRA_INSN_RADIUS 32
-#define AVERAGE_INSN_LENGTH 7
-#define AVERAGE_DISTANCE_BETWEEN_CALLS 30
+#define PROBE_INSN_COUNT 32
+#define AVERAGE_INSN_LENGTH 7 
 
 typedef struct {
     uint8_t mode;
@@ -104,11 +103,13 @@ size_t udx_gen_blks_radius(udx_t* udx, size_t target_addr, udx_blk_t* blks_buffe
 
 size_t udx_insn_count(udx_t* udx, size_t start_addr, size_t end_addr, ud_mnemonic_code_t mnemonic);
 
+size_t udx_insn_align(udx_t* udx, size_t target_addr);
+
 size_t udx_insn_reverse_of(udx_t* udx, size_t end_addr, size_t reversed_insn_count, ud_mnemonic_code_t mnemonic);
 
 size_t udx_insn_reverse(udx_t* udx, size_t end_addr, size_t reversed_insn_count);
 
-size_t udx_insn_align(udx_t* udx, size_t target_addr);
+size_t udx_insn_search(udx_t* udx, size_t target_addr, ud_mnemonic_code_t mnemonic, int32_t direction);
 
 ud_mnemonic_code_t udx_insn_mnemonic(udx_t* udx, size_t addr);
 
