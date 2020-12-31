@@ -21,7 +21,7 @@ extern "C" {
 #define DEF_THRESHOLD_DISP 0x50
 #define DEF_THRESHOLD_IMM 0x100
 
-#define RES_DISTANCE_DIMENSION 64
+#define OFFSETS_DIMENSION 64
 #define RES_PROB_MIN 30.0 //%
 
 #define PROBE_INSN_COUNT 32
@@ -108,7 +108,7 @@ size_t udx_gen_addr(size_t address, float stability, udx_addr_t* addr);
 
 size_t udx_gen_hashed_addr(size_t address, float stability, udx_hashed_addr_t* addr);
 
-size_t udx_migrate_scan_result(udx_t* udx_src, size_t addr_src, udx_scan_result_t* res_dst, udx_addr_t* addrs_buffer, size_t addrs_buffer_size);
+size_t udx_migrate_scan_result(udx_t* udx_src, size_t addr_src, size_t addr_src_origin, udx_scan_result_t* res_dst, udx_addr_t* addrs_buffer, size_t addrs_buffer_size);
 
 size_t udx_gen_blks(udx_t* udx, size_t target_addr, udx_blk_t* blks_buffer, size_t blks_buffer_size, size_t insn_cnt);
 

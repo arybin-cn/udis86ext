@@ -234,21 +234,26 @@ size_t udx_gen_hashed_addr(size_t address, float stability, udx_hashed_addr_t* a
     return 1;
 }
 
-size_t udx_migrate_scan_result(udx_t* udx_src, size_t addr_src, udx_scan_result_t* res_dst, udx_addr_t* addrs_buffer, size_t addrs_buffer_size) {
+size_t udx_migrate_scan_result(udx_t* udx_src, size_t addr_src, size_t addr_src_origin, udx_scan_result_t* res_dst, udx_addr_t* addrs_buffer, size_t addrs_buffer_size) {
     if (addrs_buffer_size / sizeof(udx_addr_t) < 1) return 0;
     if (res_dst->addrs_count == 0) return 0;
+    ud_mnemonic_code_t mnemonic_src = udx_insn_mnemonic(udx_src, addr_src_origin);
+    int32_t addr_src_offset = (int32_t)(addr_src_origin - addr_src);
     if (res_dst->addrs_count == 1) return udx_gen_addr(res_dst->addrs[0], 100.0f, addrs_buffer);
     udx_t* udx_dst = res_dst->udx;
     size_t addr_dst = 0;
     double distance_min = DBL_MAX, distance_tmp, distance_avg = 0, tmp, correct_rate;
 
-    int32_t origin_offsets[RES_DISTANCE_DIMENSION], tmp_offsets[RES_DISTANCE_DIMENSION];
+    int32_t origin_offsets[OFFSETS_DIMENSION], tmp_offsets[OFFSETS_DIMENSION];
 
-    if (!udx_gen_offsets_radius(udx_src, addr_src, origin_offsets, sizeof(origin_offsets), RES_DISTANCE_DIMENSION / 2)) {
+    if (!udx_gen_offsets_radius(udx_src, addr_src, origin_offsets, sizeof(origin_offsets), OFFSETS_DIMENSION / 2)) {
         return 0;
     }
     for (size_t i = 0; i < res_dst->addrs_count; i++) {
-        if (!udx_gen_offsets_radius(udx_dst, res_dst->addrs[i], tmp_offsets, sizeof(tmp_offsets), RES_DISTANCE_DIMENSION / 2)) {
+        if (!udx_gen_offsets_radius(udx_dst, res_dst->addrs[i], tmp_offsets, sizeof(tmp_offsets), OFFSETS_DIMENSION / 2)) {
+            continue;
+        }
+        if (udx_insn_mnemonic(udx_dst, res_dst->addrs[i] + addr_src_offset) != mnemonic_src) {
             continue;
         }
         distance_tmp = 0;
@@ -258,7 +263,7 @@ size_t udx_migrate_scan_result(udx_t* udx_src, size_t addr_src, udx_scan_result_
         }
         if (distance_tmp < distance_min) {
             distance_min = distance_tmp;
-            addr_dst = res_dst->addrs[i];
+            addr_dst = res_dst->addrs[i] + addr_src_offset;
         }
         distance_avg += distance_tmp;
         ///printf("(%.4zd) %08zX->%.2lf\n", i, res_dst->addrs[i], distance_tmp);
@@ -401,7 +406,7 @@ size_t udx_sample(udx_t* udx_src, udx_t* udx_dst, size_t addr_src, udx_sample_re
     if (!sig_len) return 0;
     size_t res_cnt = udx_scan_sig(udx_dst, sample_res->sig, &sample_res->scan_of_dst);
     if (res_cnt == 0 || res_cnt == (sizeof(sample_res->scan_of_dst.addrs) / sizeof(size_t))) return 0;
-    size_t sample_cnt = udx_migrate_scan_result(udx_src, addr_src_aligned,
+    size_t sample_cnt = udx_migrate_scan_result(udx_src, cached_blks[sig_insn_start].insn_addr, addr_src_aligned,
         &sample_res->scan_of_dst, sample_res->samples, sizeof(sample_res->samples));
     sample_res->samples_count = sample_cnt;
     for (size_t i = 0; i < sample_cnt; i++)  sample_res->samples[i].address += addr_src_aligned_offset;
