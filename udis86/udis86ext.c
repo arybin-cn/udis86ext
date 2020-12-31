@@ -124,11 +124,11 @@ size_t udx_gen_sig_blk(udx_blk_t* blk, char* sig_buffer, size_t sig_buffer_size,
     return sig_length;
 }
 
-size_t udx_gen_sig_blks(udx_blk_t* blks, size_t blks_count, char* sig_buffer, size_t sig_buffer_size,
+size_t udx_gen_sig_blks(udx_blk_t* blks, size_t insn_cnt, char* sig_buffer, size_t sig_buffer_size,
     size_t disp_threshold, size_t imm_threshold, size_t match_lvl)
-{ 
+{
     size_t sig_length = 0, blk_sig_length;
-    for (size_t i = 0; i < blks_count; i++) {
+    for (size_t i = 0; i < insn_cnt; i++) {
         blk_sig_length = udx_gen_sig_blk(blks + i, sig_buffer, sig_buffer_size, disp_threshold, imm_threshold, match_lvl);
         if (!blk_sig_length) return 0;
         sig_buffer += blk_sig_length;
@@ -136,23 +136,20 @@ size_t udx_gen_sig_blks(udx_blk_t* blks, size_t blks_count, char* sig_buffer, si
         sig_length += blk_sig_length;
     }
     return sig_length;
-
 }
 
-size_t udx_gen_sig_blks_sample(udx_blk_t* blks, size_t blks_count, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t* target_addr) {
-    size_t rnd_insns_size = udx_rnd(min(RND_SIG_INSNS_SIZE_MIN, blks_count), min(RND_SIG_INSNS_SIZE_MAX, blks_count));
-    size_t rnd_insns_start = udx_rnd(0, blks_count - rnd_insns_size);
+size_t udx_gen_sig_blks_rnd(udx_blk_t* blks, size_t insn_cnt, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold) {
     size_t sig_length = 0, blk_sig_length;
-    for (size_t i = 0; i < rnd_insns_size; i++) {
-        blk_sig_length = udx_gen_sig_blk(blks + rnd_insns_start + i, sig_buffer, sig_buffer_size, disp_threshold, imm_threshold, udx_rnd(UD_MATCH_NONE, UD_MATCH_HIGH));
+    for (size_t i = 0; i < insn_cnt; i++) {
+        blk_sig_length = udx_gen_sig_blk(blks + i, sig_buffer, sig_buffer_size, disp_threshold, imm_threshold, udx_rnd(UD_MATCH_NONE, UD_MATCH_HIGH));
         if (!blk_sig_length) return 0;
         sig_buffer += blk_sig_length;
         sig_buffer_size -= blk_sig_length;
         sig_length += blk_sig_length;
     }
-    *target_addr = blks[rnd_insns_start].insn_addr;
     return sig_length;
 }
+
 
 size_t udx_gen_offsets(udx_t* udx, size_t target_addr, int32_t* offsets_buffer, size_t offsets_buffer_size, size_t count) {
     if (offsets_buffer_size / sizeof(int32_t) < count) return 0;
@@ -193,7 +190,7 @@ size_t udx_scan_sig(udx_t* udx, char* sig, udx_scan_result_t* result) {
     uint16_t real_sig[256] = { 0 };
     uint8_t real_sig_size = 0;
     size_t i;
-      
+
     for (i = 0; i < sig_buffer_size; i += 3) {
         while (sig[i] == ' ') i++;
         if (sig[i] == 0) break;
@@ -223,7 +220,7 @@ size_t udx_scan_sig(udx_t* udx, char* sig, udx_scan_result_t* result) {
     return result->addrs_count;
 }
 
-size_t udx_gen_addr(size_t address, float stability, udx_addr_t* addr) { 
+size_t udx_gen_addr(size_t address, float stability, udx_addr_t* addr) {
     addr->address = address;
     addr->stability = stability;
     addr->hit = 1;
@@ -246,7 +243,7 @@ size_t udx_migrate_scan_result(udx_t* udx_src, size_t addr_src, udx_scan_result_
     double distance_min = DBL_MAX, distance_tmp, distance_avg = 0, tmp, correct_rate;
 
     int32_t origin_offsets[RES_DISTANCE_DIMENSION], tmp_offsets[RES_DISTANCE_DIMENSION];
-     
+
     if (!udx_gen_offsets_radius(udx_src, addr_src, origin_offsets, sizeof(origin_offsets), RES_DISTANCE_DIMENSION / 2)) {
         return 0;
     }
@@ -272,24 +269,24 @@ size_t udx_migrate_scan_result(udx_t* udx_src, size_t addr_src, udx_scan_result_
     return udx_gen_addr(addr_dst, (float)correct_rate, addrs_buffer);
 }
 
-size_t udx_gen_blks(udx_t* udx, size_t target_addr, udx_blk_t* blks_buffer, size_t blks_buffer_size, size_t insns_count) {
-    if (insns_count < 1 || (blks_buffer_size / sizeof(udx_blk_t)) < insns_count) return 0;
+size_t udx_gen_blks(udx_t* udx, size_t target_addr, udx_blk_t* blks_buffer, size_t blks_buffer_size, size_t insn_cnt) {
+    if (insn_cnt < 1 || (blks_buffer_size / sizeof(udx_blk_t)) < insn_cnt) return 0;
     size_t blks_count_generated = 0;
     ud_t ud;
     udx_init_ud(udx, &ud, target_addr);
     while (ud_disassemble(&ud)) {
         memcpy_s(blks_buffer + (blks_count_generated++), sizeof(udx_blk_t), &ud.blk, sizeof(udx_blk_t));
-        if (blks_count_generated >= insns_count) break;
+        if (blks_count_generated >= insn_cnt) break;
     }
-    if (blks_count_generated != insns_count) return 0;
+    if (blks_count_generated != insn_cnt) return 0;
     return blks_count_generated;
 }
 
 size_t udx_gen_blks_radius(udx_t* udx, size_t target_addr, udx_blk_t* blks_buffer, size_t blks_buffer_size, size_t radius) {
-    size_t insns_count = radius * 2 + 1;
-    if (radius < 1 || (blks_buffer_size / sizeof(udx_blk_t)) < insns_count) return 0;
+    size_t insn_cnt = radius * 2 + 1;
+    if (radius < 1 || (blks_buffer_size / sizeof(udx_blk_t)) < insn_cnt) return 0;
     size_t start_addr = udx_insn_reverse(udx, target_addr, radius);
-    return udx_gen_blks(udx, start_addr, blks_buffer, blks_buffer_size, insns_count);
+    return udx_gen_blks(udx, start_addr, blks_buffer, blks_buffer_size, insn_cnt);
 }
 
 size_t udx_insn_count(udx_t* udx, size_t start_addr, size_t end_addr, ud_mnemonic_code_t mnemonic) {
@@ -375,6 +372,42 @@ ud_mnemonic_code_t udx_insn_mnemonic(udx_t* udx, size_t addr) {
     }
     return mnemonic;
 }
+
+size_t udx_sample(udx_t* udx_src, udx_t* udx_dst, size_t addr_src, udx_sample_result_t* sample_res, size_t disp_threshold, size_t imm_threshold) {
+    sample_res->samples_count = 0;
+    size_t addr_src_aligned;
+    int32_t addr_src_aligned_offset;
+    udx_blk_t* cached_blks = sample_res->cached_blks;
+    if (addr_src != sample_res->cached_addr_src) {
+        addr_src_aligned = udx_insn_align(udx_src, addr_src);
+        if (!addr_src_aligned) return 0;
+        sample_res->cached_addr_src_aligned = addr_src_aligned;
+        size_t addr_last_int3 = udx_insn_search(udx_src, addr_src_aligned, UD_Iint3, -1);
+        if (!addr_last_int3) return 0;
+        size_t insn_count_below_last_int3 = udx_insn_count(udx_src, addr_last_int3 + 1, addr_src_aligned, UD_Iall);
+        size_t addr_blks_start = udx_insn_search(udx_src, addr_src_aligned, UD_Iall,
+            -(int32_t)min(insn_count_below_last_int3, SAMPLE_SIG_INSN_CNT_MAX));
+        size_t blks_count = udx_gen_blks(udx_src, addr_blks_start, cached_blks,
+            sizeof(sample_res->cached_blks), 2 * SAMPLE_SIG_INSN_CNT_MAX + 1);
+        if (!blks_count) return 0;
+        sample_res->cached_addr_src = addr_src;
+    }
+    addr_src_aligned = sample_res->cached_addr_src_aligned;
+    addr_src_aligned_offset = (int32_t)(addr_src - addr_src_aligned);
+    size_t sig_insn_cnt = udx_rnd(SAMPLE_SIG_INSN_CNT_MIN, SAMPLE_SIG_INSN_CNT_MAX);
+    size_t sig_insn_start = udx_rnd(0, 2 * SAMPLE_SIG_INSN_CNT_MAX + 1 - 1 - sig_insn_cnt);
+    size_t sig_len = udx_gen_sig_blks_rnd(cached_blks + sig_insn_start, sig_insn_cnt,
+        sample_res->sig, sizeof(sample_res->sig), disp_threshold, imm_threshold);
+    if (!sig_len) return 0;
+    size_t res_cnt = udx_scan_sig(udx_dst, sample_res->sig, &sample_res->scan_of_dst);
+    if (res_cnt == 0 || res_cnt == (sizeof(sample_res->scan_of_dst.addrs) / sizeof(size_t))) return 0;
+    size_t sample_cnt = udx_migrate_scan_result(udx_src, addr_src_aligned,
+        &sample_res->scan_of_dst, sample_res->samples, sizeof(sample_res->samples));
+    sample_res->samples_count = sample_cnt;
+    for (size_t i = 0; i < sample_cnt; i++)  sample_res->samples[i].address += addr_src_aligned_offset;
+    return sample_cnt;
+}
+
 
 //size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t addr_src, udx_addr_t** paddrs, size_t sample_radius, size_t sample_count) {
 //    udx_hashed_addr_t* hashed_addrs = NULL, * hashed_addr, * tmp;

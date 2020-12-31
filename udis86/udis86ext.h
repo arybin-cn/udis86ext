@@ -7,6 +7,7 @@ extern "C" {
 #endif
 
 #define ARYBIN 0x46724672
+#define BOOL uint8_t
 #define UD_Iall UD_MAX_MNEMONIC_CODE
 
 #define UD_MATCH_NONE 0
@@ -23,11 +24,9 @@ extern "C" {
 #define RES_DISTANCE_DIMENSION 64
 #define RES_PROB_MIN 30.0 //%
 
-#define RND_SIG_INSNS_SIZE_MIN 3
-#define RND_SIG_INSNS_SIZE_MAX 15
-
 #define PROBE_INSN_COUNT 32
-#define AVERAGE_INSN_LENGTH 7 
+#define AVERAGE_INSN_LENGTH 7
+
 
 typedef struct {
     uint8_t mode;
@@ -49,6 +48,20 @@ typedef struct {
     float stability;
     float prob;
 }udx_addr_t;
+
+#define SAMPLE_RES_LEN_MAX 128
+#define SAMPLE_SIG_INSN_CNT_MIN 5
+#define SAMPLE_SIG_INSN_CNT_MAX 15
+#define SAMPLE_SIG_SIZE (SAMPLE_SIG_INSN_CNT_MAX*AVERAGE_INSN_LENGTH*3)
+typedef struct {
+    size_t cached_addr_src;
+    size_t cached_addr_src_aligned;
+    udx_blk_t cached_blks[SAMPLE_SIG_INSN_CNT_MAX * 2 + 1];
+    size_t samples_count;
+    udx_addr_t samples[SAMPLE_RES_LEN_MAX];
+    char sig[SAMPLE_SIG_SIZE];
+    udx_scan_result_t scan_of_dst;
+}udx_sample_result_t;
 
 typedef struct {
     size_t address;
@@ -81,9 +94,9 @@ size_t udx_gen_sig(udx_t* udx, size_t target_addr, char* sig_buffer, size_t sig_
 
 size_t udx_gen_sig_blk(udx_blk_t* blk, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t match_lvl);
 
-size_t udx_gen_sig_blks(udx_blk_t* blks, size_t blks_count, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t match_lvl);
+size_t udx_gen_sig_blks(udx_blk_t* blks, size_t insn_cnt, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t match_lvl);
 
-size_t udx_gen_sig_blks_sample(udx_blk_t* blks, size_t blks_count, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold, size_t* target_addr);
+size_t udx_gen_sig_blks_rnd(udx_blk_t* blks, size_t insn_cnt, char* sig_buffer, size_t sig_buffer_size, size_t disp_threshold, size_t imm_threshold);
 
 size_t udx_gen_offsets(udx_t* udx, size_t target_addr, int32_t* offsets_buffer, size_t offsets_buffer_size, size_t count);
 
@@ -97,7 +110,7 @@ size_t udx_gen_hashed_addr(size_t address, float stability, udx_hashed_addr_t* a
 
 size_t udx_migrate_scan_result(udx_t* udx_src, size_t addr_src, udx_scan_result_t* res_dst, udx_addr_t* addrs_buffer, size_t addrs_buffer_size);
 
-size_t udx_gen_blks(udx_t* udx, size_t target_addr, udx_blk_t* blks_buffer, size_t blks_buffer_size, size_t insns_count);
+size_t udx_gen_blks(udx_t* udx, size_t target_addr, udx_blk_t* blks_buffer, size_t blks_buffer_size, size_t insn_cnt);
 
 size_t udx_gen_blks_radius(udx_t* udx, size_t target_addr, udx_blk_t* blks_buffer, size_t blks_buffer_size, size_t radius);
 
@@ -112,6 +125,8 @@ size_t udx_insn_reverse(udx_t* udx, size_t end_addr, size_t reversed_insn_count)
 size_t udx_insn_search(udx_t* udx, size_t target_addr, ud_mnemonic_code_t mnemonic, int32_t direction);
 
 ud_mnemonic_code_t udx_insn_mnemonic(udx_t* udx, size_t addr);
+
+size_t udx_sample(udx_t* udx_src, udx_t* udx_dst, size_t addr_src, udx_sample_result_t* sample_res, size_t disp_threshold, size_t imm_threshold);
 
 //size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, udx_addr_t** paddrs, size_t sample_radius, size_t sample_count);
 

@@ -43,6 +43,20 @@ int main()
     udx_t udx_new;
     udx_init(&udx_new, buffer_new, file_size_new, 0x400000, 32); 
 
+    udx_sample_result_t sample_res;
+
+
+    //size_t udx_sample(udx_t * udx_src, udx_t * udx_dst, size_t addr_src, udx_sample_result_t * sample_res, size_t disp_threshold, size_t imm_threshold) {
+
+    udx_sample(&udx_new, &udx_old, 0x1DE824E, &sample_res, 0x50, 0x100);
+    udx_sample(&udx_new, &udx_old, 0x1DE824E, &sample_res, 0x50, 0x100);
+    udx_sample(&udx_new, &udx_old, 0x1DE824E, &sample_res, 0x50, 0x100);
+
+
+    //udx_sample(&udx_new, &udx_old, 0x1DE81CF, &sample_res);
+    //udx_sample(&udx_new, &udx_old, 0x1DE81CF, &sample_res);
+
+
     //int32_t offsets[100];
     //size_t noffsets = udx_gen_offsets_radius(&udx_new, 0x1DE8206, offsets, sizeof(offsets), 3);
     //for (size_t i = 0; i < noffsets; i++)
