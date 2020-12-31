@@ -57,10 +57,12 @@ typedef struct {
     size_t cached_addr_src;
     size_t cached_addr_src_aligned;
     udx_blk_t cached_blks[SAMPLE_SIG_INSN_CNT_MAX * 2 + 1];
+
     size_t samples_count;
     udx_addr_t samples[SAMPLE_RES_LEN_MAX];
+    size_t addr_sig;
     char sig[SAMPLE_SIG_SIZE];
-    udx_scan_result_t scan_of_dst;
+    udx_scan_result_t scan_result;
 }udx_sample_result_t;
 
 typedef struct {

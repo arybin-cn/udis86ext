@@ -43,24 +43,26 @@ int main()
     udx_t udx_new;
     udx_init(&udx_new, buffer_new, file_size_new, 0x400000, 32); 
 
-    udx_sample_result_t sample_res;
-
-
-    //size_t udx_sample(udx_t * udx_src, udx_t * udx_dst, size_t addr_src, udx_sample_result_t * sample_res, size_t disp_threshold, size_t imm_threshold) {
+    /*udx_sample_result_t sample_res;
     size_t cnt = 0;
+    clock_t st = clock();
     for (size_t i = 0; i < 100; i++)
     {
-        udx_sample(&udx_new, &udx_old, 0x1DE824E, &sample_res, 0x50, 0x100);
+        udx_sample(&udx_new, &udx_old, 0x0CEE910, &sample_res, 0x50, 0x100);
         if (sample_res.samples_count) {
-            printf("(%zd) Sig hit %zd results, get %zd address(s) -> \n%s\n", ++cnt, sample_res.scan_of_dst.addrs_count, sample_res.samples_count, sample_res.sig);
+            printf("\n(%zd) Sig of %s%zX hit %zd results, get %zd address(s) -> \n%s\n", ++cnt,
+                (int32_t)(sample_res.addr_sig - sample_res.cached_addr_src) >= 0 ? "0x" : "-0x",
+                udx_abs(sample_res.addr_sig - sample_res.cached_addr_src),
+                sample_res.scan_result.addrs_count, sample_res.samples_count, sample_res.sig);
             for (size_t j = 0; j < sample_res.samples_count; j++)
             {
                 printf("%08zX Stability: %.2f%%\n", sample_res.samples[j].address, sample_res.samples[j].stability);
             }
         }
     }
-
-
+    clock_t et = clock();
+    double time_elapsed = (double)(et - st) / CLOCKS_PER_SEC;
+    printf("Time elapsed: %.2fs\n", time_elapsed);*/
 
     //udx_sample(&udx_new, &udx_old, 0x1DE81CF, &sample_res);
     //udx_sample(&udx_new, &udx_old, 0x1DE81CF, &sample_res);
