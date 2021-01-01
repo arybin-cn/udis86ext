@@ -35,7 +35,7 @@ typedef struct {
     size_t load_base;
 }udx_t;
 
-#define SCAN_RES_SIZE 8192-3
+#define SCAN_RES_SIZE 1024*8-3
 typedef struct {
     size_t addrs_count;
     size_t addrs[SCAN_RES_SIZE];

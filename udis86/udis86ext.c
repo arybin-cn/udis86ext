@@ -42,7 +42,7 @@ int64_t udx_qword(udx_t* udx, size_t address) {
 }
 
 uint64_t udx_abs(int64_t src) {
-    int64_t const mask = src >> ((sizeof(int) * 8) - 1);
+    int64_t const mask = src >> ((sizeof(int64_t) * 8) - 1);
     return (src ^ mask) - mask;
 }
 
@@ -469,8 +469,7 @@ size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t addr_src, udx_migrate_
         mig_addr->hit = cached_addr->hit;
         mig_addr->stability = cached_addr->stability;
         mig_addr->similarity = 100.0f * cached_addr->hit / sample_cnt;
-        mig_addr->probability = mig_addr->stability * mig_addr->hit;
-        mig_addr->probability *= mig_addr->probability;
+        mig_addr->probability = mig_addr->stability * mig_addr->hit * mig_addr->hit;
         total_probability += mig_addr->probability;
     }
     if (addr_cnt == 1)  mig_res->migs[0].probability = mig_res->migs[0].stability * mig_res->migs[0].similarity / 100;

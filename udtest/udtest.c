@@ -38,25 +38,32 @@ int main()
 
     printf("Migrate from %s to %s\n", DUMP_FILE_FROM, DUMP_FILE_TO);
 
-    udx_t udx_old;
-    udx_init(&udx_old, buffer_old, file_size_old, 0x400000, 32);
-    udx_t udx_new;
-    udx_init(&udx_new, buffer_new, file_size_new, 0x400000, 32); 
+    udx_t udx_src;
+    udx_init(&udx_src, buffer_old, file_size_old, 0x400000, 32);
+    udx_t udx_dst;
+    udx_init(&udx_dst, buffer_new, file_size_new, 0x400000, 32);
 
-    clock_t st = clock();
-    udx_migrate_result_t mig_res;
-    size_t src_addr = 0x1BF3764;
-    size_t sample_cnt = 1000;
-    udx_migrate(&udx_old, &udx_new, src_addr, &mig_res, 0x50, 0x100, sample_cnt);
-    clock_t et = clock();
-    double time_elapsed = (double)(et - st) / CLOCKS_PER_SEC;
-    printf("\nMigrate for %08zX completed, %zd signatures verified, %zd result(s) returned, time elapsed: %.2fs\n\n",
-        src_addr, sample_cnt, mig_res.mig_count, time_elapsed);
-    for (size_t i = 0; i < mig_res.mig_count; i++)
+
+    for (size_t j = 0; j < 100; j++)
     {
-        udx_addr_t* mig_addr = mig_res.migs + i;
-        printf("%2zd %08zX hit: %3zd, stability: %6.2f%%, similarity: %6.2f%%, probability: %6.2f%%\n",
-            i + 1, mig_addr->address, mig_addr->hit, mig_addr->stability, mig_addr->similarity, mig_addr->probability);
+        clock_t st = clock();
+        udx_migrate_result_t mig_res;
+        size_t src_addr = 0x401000 + (rand() * rand() % (udx_src.mem_buffer_size / 2 - 0x1000));
+        //size_t src_addr = 0x1BF3764;
+        src_addr = udx_insn_align(&udx_src, src_addr);
+        size_t sample_cnt = 100;
+        udx_migrate(&udx_src, &udx_dst, src_addr, &mig_res, 0x50, 0x100, sample_cnt);
+        clock_t et = clock();
+        double time_elapsed = (double)(et - st) / CLOCKS_PER_SEC;
+        printf("\nMigrate for %08zX completed, %zd/%zd signatures hit %zd address(s), time elapsed: %.2fs\n\n",
+            src_addr, mig_res.hit, mig_res.total, mig_res.mig_count, time_elapsed);
+        for (size_t i = 0; i < mig_res.mig_count; i++)
+        {
+            udx_addr_t* mig_addr = mig_res.migs + i;
+            printf("%2zd %08zX\thit: %3zd, stability: %6.2f%%, similarity: %6.2f%%, probability: %6.2f%%\n",
+                i + 1, mig_addr->address, mig_addr->hit, mig_addr->stability, mig_addr->similarity, mig_addr->probability);
+        }
+        system("pause");
     }
 
 
