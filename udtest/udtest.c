@@ -43,12 +43,29 @@ int main()
     udx_t udx_new;
     udx_init(&udx_new, buffer_new, file_size_new, 0x400000, 32); 
 
+    clock_t st = clock();
+    udx_migrate_result_t mig_res;
+    size_t src_addr = 0x1BF3764;
+    size_t sample_cnt = 1000;
+    udx_migrate(&udx_old, &udx_new, src_addr, &mig_res, 0x50, 0x100, sample_cnt);
+    clock_t et = clock();
+    double time_elapsed = (double)(et - st) / CLOCKS_PER_SEC;
+    printf("\nMigrate for %08zX completed, %zd signatures verified, %zd result(s) returned, time elapsed: %.2fs\n\n",
+        src_addr, sample_cnt, mig_res.mig_count, time_elapsed);
+    for (size_t i = 0; i < mig_res.mig_count; i++)
+    {
+        udx_addr_t* mig_addr = mig_res.migs + i;
+        printf("%2zd %08zX hit: %3zd, stability: %6.2f%%, similarity: %6.2f%%, probability: %6.2f%%\n",
+            i + 1, mig_addr->address, mig_addr->hit, mig_addr->stability, mig_addr->similarity, mig_addr->probability);
+    }
+
+
     /*udx_sample_result_t sample_res;
     size_t cnt = 0;
     clock_t st = clock();
     for (size_t i = 0; i < 100; i++)
     {
-        udx_sample(&udx_new, &udx_old, 0x0CEE910, &sample_res, 0x50, 0x100);
+        udx_sample(&udx_old, &udx_new, 0x114884A, &sample_res, 0x50, 0x100);
         if (sample_res.samples_count) {
             printf("\n(%zd) Sig of %s%zX hit %zd results, get %zd address(s) -> \n%s\n", ++cnt,
                 (int32_t)(sample_res.addr_sig - sample_res.cached_addr_src) >= 0 ? "0x" : "-0x",
@@ -62,7 +79,7 @@ int main()
     }
     clock_t et = clock();
     double time_elapsed = (double)(et - st) / CLOCKS_PER_SEC;
-    printf("Time elapsed: %.2fs\n", time_elapsed);*/
+    printf("Time elapsed: %.2fs\n", time_elapsed); */
 
     //udx_sample(&udx_new, &udx_old, 0x1DE81CF, &sample_res);
     //udx_sample(&udx_new, &udx_old, 0x1DE81CF, &sample_res);

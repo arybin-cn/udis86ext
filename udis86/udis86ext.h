@@ -46,10 +46,18 @@ typedef struct {
     size_t address;
     size_t hit;
     float stability;
-    float prob;
+    UT_hash_handle hh;
+}udx_hashed_addr_t;
+
+typedef struct {
+    size_t address;
+    size_t hit;
+    float stability;
+    float similarity; //reduce by @hit, @total
+    float probability; //reduce by @hit, @stability, @similarity
 }udx_addr_t;
 
-#define SAMPLE_RES_LEN_MAX 128
+#define SAMPLE_RES_SIZE 4
 #define SAMPLE_SIG_INSN_CNT_MIN 5
 #define SAMPLE_SIG_INSN_CNT_MAX 15
 #define SAMPLE_SIG_SIZE (SAMPLE_SIG_INSN_CNT_MAX*AVERAGE_INSN_LENGTH*3)
@@ -59,24 +67,25 @@ typedef struct {
     udx_blk_t cached_blks[SAMPLE_SIG_INSN_CNT_MAX * 2 + 1];
 
     size_t samples_count;
-    udx_addr_t samples[SAMPLE_RES_LEN_MAX];
+    udx_addr_t samples[SAMPLE_RES_SIZE];
     size_t addr_sig;
     char sig[SAMPLE_SIG_SIZE];
     udx_scan_result_t scan_result;
 }udx_sample_result_t;
 
+#define MIGRATE_RES_SIZE 128
 typedef struct {
-    size_t address;
+    size_t mig_count;
+    udx_addr_t migs[MIGRATE_RES_SIZE];
     size_t hit;
-    float stability;
-    UT_hash_handle hh;
-}udx_hashed_addr_t;
+    size_t total;
+}udx_migrate_result_t;
 
 void udx_init(udx_t* udx, uint8_t* mem_buffer, size_t mem_buffer_size, size_t load_base, uint8_t mode);
 
 size_t udx_init_ud(udx_t* udx, ud_t* ud, size_t address);
 
-void udx_free(void* ptr);
+//void udx_free(void* ptr);
 
 int8_t udx_byte(udx_t* udx, size_t address);
 
@@ -129,6 +138,8 @@ size_t udx_insn_search(udx_t* udx, size_t target_addr, ud_mnemonic_code_t mnemon
 ud_mnemonic_code_t udx_insn_mnemonic(udx_t* udx, size_t addr);
 
 size_t udx_sample(udx_t* udx_src, udx_t* udx_dst, size_t addr_src, udx_sample_result_t* sample_res, size_t disp_threshold, size_t imm_threshold);
+
+size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t addr_src, udx_migrate_result_t* mig_res, size_t disp_threshold, size_t imm_threshold, size_t sample_cnt);
 
 //size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t src_addr, udx_addr_t** paddrs, size_t sample_radius, size_t sample_count);
 

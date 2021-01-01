@@ -21,9 +21,9 @@ size_t udx_init_ud(udx_t* udx, ud_t* ud, size_t address) {
     return 1;
 }
 
-void udx_free(void* ptr) {
-    free(ptr);
-}
+//void udx_free(void* ptr) {
+//    free(ptr);
+//}
 
 int8_t udx_byte(udx_t* udx, size_t address) {
     return *(uint8_t*)(udx->mem_buffer + (address - udx->load_base));
@@ -420,6 +420,64 @@ size_t udx_sample(udx_t* udx_src, udx_t* udx_dst, size_t addr_src, udx_sample_re
     return sample_cnt;
 }
 
+size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t addr_src, udx_migrate_result_t* mig_res,
+    size_t disp_threshold, size_t imm_threshold, size_t sample_cnt) {
+    mig_res->mig_count = 0;
+    mig_res->hit = 0;
+    mig_res->total = sample_cnt;
+    if (sample_cnt < 1) return 0;
+    size_t total_hit_cnt = 0;
+    udx_hashed_addr_t* cached_addrs = NULL, * cached_addr, * not_used;
+    udx_hashed_addr_t addr_buffer[MIGRATE_RES_SIZE]; size_t addr_cnt = 0, addr_cnt_tmp;
+    udx_sample_result_t sample_res = { ARYBIN }; 
+    for (size_t i = 0; i < sample_cnt; i++) {
+        addr_cnt_tmp = udx_sample(udx_src, udx_dst, addr_src, &sample_res, disp_threshold, imm_threshold);
+        if (!addr_cnt_tmp) continue;
+        total_hit_cnt++;
+
+        printf("\n(%zd) Sig of %s%02zX hit %zd results, stability: %.2lf%%, %08zX -> %08zX\n%s\n", total_hit_cnt,
+            (int32_t)(sample_res.addr_sig - sample_res.cached_addr_src) >= 0 ? " 0x" : "-0x",
+            udx_abs(sample_res.addr_sig - sample_res.cached_addr_src), sample_res.scan_result.addrs_count,
+            sample_res.samples[0].stability, addr_src, sample_res.samples[0].address,
+            sample_res.sig);
+
+        for (size_t j = 0; j < addr_cnt_tmp; j++) {
+            udx_addr_t* addr_sample = sample_res.samples + j;
+            cached_addr = NULL;
+            HASH_FIND_INT(cached_addrs, &addr_sample->address, cached_addr);
+            if (cached_addr) {
+                cached_addr->stability = (cached_addr->stability * cached_addr->hit + addr_sample->stability) / (cached_addr->hit + 1);
+                cached_addr->hit++;
+            }
+            else {
+                if (addr_cnt >= MIGRATE_RES_SIZE) continue;
+                cached_addr = addr_buffer + addr_cnt++;
+                udx_gen_hashed_addr(addr_sample->address, addr_sample->stability, cached_addr);
+                HASH_ADD_INT(cached_addrs, address, cached_addr);
+            }
+        }
+    }
+    mig_res->hit = total_hit_cnt; 
+    mig_res->mig_count = addr_cnt;
+    addr_cnt = 0;
+    cached_addr = NULL;
+    float total_probability = 0;
+    HASH_ITER(hh, cached_addrs, cached_addr, not_used) {
+        HASH_DEL(cached_addrs, cached_addr);
+        udx_addr_t* mig_addr = mig_res->migs + addr_cnt++;
+        mig_addr->address = cached_addr->address;
+        mig_addr->hit = cached_addr->hit;
+        mig_addr->stability = cached_addr->stability;
+        mig_addr->similarity = 100.0f * cached_addr->hit / sample_cnt;
+        mig_addr->probability = mig_addr->stability * mig_addr->hit;
+        mig_addr->probability *= mig_addr->probability;
+        total_probability += mig_addr->probability;
+    }
+    if (addr_cnt == 1)  mig_res->migs[0].probability = mig_res->migs[0].stability * mig_res->migs[0].similarity / 100;
+    else for (size_t i = 0; i < addr_cnt; i++) 
+        mig_res->migs[i].probability = mig_res->migs[i].similarity * mig_res->migs[i].probability / total_probability;
+    return addr_cnt;
+}
 
 //size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t addr_src, udx_addr_t** paddrs, size_t sample_radius, size_t sample_count) {
 //    udx_hashed_addr_t* hashed_addrs = NULL, * hashed_addr, * tmp;
