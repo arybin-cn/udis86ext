@@ -43,15 +43,20 @@ int main()
     udx_t udx_dst;
     udx_init(&udx_dst, buffer_new, file_size_new, 0x400000, 32);
 
+    /*udx_scan_result_t scan_res;
+    udx_scan_sig(&udx_dst, "?? ?? ?? ?? ?? 8B 48 04 8B 38 83 C1 32 8B 50 04 83 C7 14 8B 00 83 EA 32 83 E8 14 ?? ?? ??", &scan_res);
+    for (size_t i = 0; i < scan_res.addrs_count; i++) {
+        printf("(%zd) %08zX\n", i + 1, scan_res.addrs[i]);
+    }*/
 
-    for (size_t j = 0; j < 100; j++)
-    {
+
+    for (size_t j = 99; j < 100; j++) {
         clock_t st = clock();
         udx_migrate_result_t mig_res;
-        size_t src_addr = 0x401000 + (rand() * rand() % (udx_src.mem_buffer_size / 2 - 0x1000));
-        //size_t src_addr = 0x1BF3764;
+        //size_t src_addr = 0x401000 + (rand() * rand() % (udx_src.mem_buffer_size / 2 - 0x1000));
+        size_t src_addr = 0x1BF3764;
         src_addr = udx_insn_align(&udx_src, src_addr);
-        size_t sample_cnt = 100;
+        size_t sample_cnt = 500;
         udx_migrate(&udx_src, &udx_dst, src_addr, &mig_res, 0x50, 0x100, sample_cnt);
         clock_t et = clock();
         double time_elapsed = (double)(et - st) / CLOCKS_PER_SEC;

@@ -187,19 +187,28 @@ size_t udx_scan_sig(udx_t* udx, char* sig, udx_scan_result_t* result) {
     size_t ret_buffer_length = sizeof(result->addrs) / sizeof(size_t);
     size_t sig_buffer_size = strlen(sig);
 
+    int32_t i;
     uint16_t real_sig[256] = { 0 };
     uint8_t real_sig_size = 0;
-    size_t i;
-
+    
+    size_t prefix_wildcard_len = 0;
+    BOOL prefix_wildcard = 1;
     for (i = 0; i < sig_buffer_size; i += 3) {
         while (sig[i] == ' ') i++;
         if (sig[i] == 0) break;
         if (sig[i] == '?') {
-            real_sig[real_sig_size++] = SIG_WILDCARD;
+            if (prefix_wildcard) prefix_wildcard_len++; //eliminate prefix wildcards
+            else real_sig[real_sig_size++] = SIG_WILDCARD;
         }
         else {
+            prefix_wildcard = 0;
             sscanf_s(&sig[i], "%hx", &real_sig[real_sig_size++]);
         }
+    }
+
+    for (i = real_sig_size - 1; i > -1; i--) {
+        if (real_sig[i] != SIG_WILDCARD) break;
+        real_sig_size--; //eliminate suffix wildcards
     }
 
     uint8_t* start_addr = udx->mem_buffer;
@@ -212,7 +221,7 @@ size_t udx_scan_sig(udx_t* udx, char* sig, udx_scan_result_t* result) {
             if (start_addr[i] != (uint8_t)real_sig[i]) break;
         }
         if (i >= real_sig_size) {
-            ret_buffer[result->addrs_count++] = cur_addr;
+            ret_buffer[result->addrs_count++] = cur_addr - prefix_wildcard_len;
         }
         start_addr++;
     }
