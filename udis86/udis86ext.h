@@ -95,7 +95,7 @@ int32_t udx_dword(udx_t* udx, size_t address);
 
 int64_t udx_qword(udx_t* udx, size_t address);
 
-uint64_t udx_abs(int64_t src);
+size_t udx_abs(intptr_t src);
 
 size_t udx_rnd(size_t a, size_t b);
 

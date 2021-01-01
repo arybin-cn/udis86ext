@@ -41,8 +41,8 @@ int64_t udx_qword(udx_t* udx, size_t address) {
     return *(uint64_t*)(udx->mem_buffer + (address - udx->load_base));
 }
 
-uint64_t udx_abs(int64_t src) {
-    int64_t const mask = src >> ((sizeof(int64_t) * 8) - 1);
+size_t udx_abs(intptr_t src) {
+    intptr_t const mask = src >> ((sizeof(size_t) * 8) - 1);
     return (src ^ mask) - mask;
 }
 
@@ -185,9 +185,9 @@ size_t udx_scan_sig(udx_t* udx, char* sig, udx_scan_result_t* result) {
 
     size_t* ret_buffer = result->addrs;
     size_t ret_buffer_length = sizeof(result->addrs) / sizeof(size_t);
-    size_t sig_buffer_size = strlen(sig);
+    intptr_t sig_buffer_size = strlen(sig);
 
-    int32_t i;
+    intptr_t i;
     uint16_t real_sig[256] = { 0 };
     uint8_t real_sig_size = 0;
     
@@ -335,7 +335,7 @@ size_t udx_insn_align(udx_t* udx, size_t target_addr) {
         }
         break;
     }
-    return ud_insn_off(&ud);
+    return (size_t)ud_insn_off(&ud);
 }
 
 size_t udx_insn_reverse_of(udx_t* udx, size_t end_addr, size_t reversed_insn_count, ud_mnemonic_code_t mnemonic) {
@@ -363,7 +363,7 @@ size_t udx_insn_reverse_of(udx_t* udx, size_t end_addr, size_t reversed_insn_cou
             break;
         }
     }
-    return ud_insn_off(&ud);
+    return (size_t)ud_insn_off(&ud);
 }
 
 size_t udx_insn_reverse(udx_t* udx, size_t end_addr, size_t reversed_insn_count) {
@@ -380,7 +380,7 @@ size_t udx_insn_search(udx_t* udx, size_t target_addr, ud_mnemonic_code_t mnemon
     while (direction > 0 && ud_disassemble(&ud)) {
         if (mnemonic == UD_Iall || mnemonic == ud_insn_mnemonic(&ud)) direction--;
     }
-    return ud_insn_off(&ud);
+    return (size_t)ud_insn_off(&ud);
 }
 
 ud_mnemonic_code_t udx_insn_mnemonic(udx_t* udx, size_t addr) {
@@ -444,9 +444,10 @@ size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t addr_src, udx_migrate_
         if (!addr_cnt_tmp) continue;
         total_hit_cnt++;
 
-        printf("\n(%zd) Sig of %s%02zX hit %zd results, stability: %.2lf%%, %08zX -> %08zX\n%s\n", total_hit_cnt,
+        printf("\n(%zd) Sig of %s%X hit %zd results, stability: %.2lf%%, %08zX -> %08zX\n%s\n", total_hit_cnt,
             (int32_t)(sample_res.addr_sig - sample_res.cached_addr_src) >= 0 ? " 0x" : "-0x",
-            udx_abs(sample_res.addr_sig - sample_res.cached_addr_src), sample_res.scan_result.addrs_count,
+            (int32_t)udx_abs(sample_res.addr_sig - sample_res.cached_addr_src), 
+            sample_res.scan_result.addrs_count,
             sample_res.samples[0].stability, addr_src, sample_res.samples[0].address,
             sample_res.sig);
 

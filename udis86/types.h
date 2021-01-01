@@ -186,12 +186,12 @@ typedef struct udx_blk {
     uint8_t   have_disp;
     uint8_t   disp_offset;
     uint8_t   disp_size;
-    int64_t   disp;
+    intptr_t   disp;
 
     uint8_t   have_imm;
     uint8_t   imm_offset;
     uint8_t   imm_size;
-    int64_t   imm;
+    intptr_t   imm;
 }udx_blk_t;
 
 /* -----------------------------------------------------------------------------

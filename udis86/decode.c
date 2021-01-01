@@ -499,7 +499,7 @@ decode_imm(struct ud* u, unsigned int size, struct ud_operand* op)
         break;
     case 64:
         op->lval.uqword = inp_uint64(u);
-        u->blk.imm = op->lval.sqword;
+        u->blk.imm = (intptr_t)op->lval.sqword;
         break;
     default:
         return;
@@ -522,22 +522,22 @@ decode_mem_disp(struct ud* u, unsigned int size, struct ud_operand* op)
     case 8:
         op->offset = 8;
         op->lval.ubyte = inp_uint8(u);
-        u->blk.disp = (int64_t)op->lval.sbyte;
+        u->blk.disp = op->lval.sbyte;
         break;
     case 16:
         op->offset = 16;
         op->lval.uword = inp_uint16(u);
-        u->blk.disp = (int64_t)op->lval.sword;
+        u->blk.disp = op->lval.sword;
         break;
     case 32:
         op->offset = 32;
         op->lval.udword = inp_uint32(u);
-        u->blk.disp = (int64_t)op->lval.sdword;
+        u->blk.disp = op->lval.sdword;
         break;
     case 64:
         op->offset = 64;
         op->lval.uqword = inp_uint64(u);
-        u->blk.disp = (int64_t)op->lval.sqword;
+        u->blk.disp = (intptr_t)op->lval.sqword;
         break;
     default:
         return;
