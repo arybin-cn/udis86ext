@@ -8,6 +8,61 @@
 #define DUMP_FILE_TO "..\\Res\\CMS176.1.CEM"
 #define TEST_COUNT 100
 
+size_t udx_scan_sig_old(udx_t* udx, char* sig, udx_scan_result_t* result) {
+    if (!result) return 0;
+    result->addrs_count = 0;
+    result->udx = udx;
+
+    intptr_t i;
+    size_t* ret_buffer = result->addrs;
+    size_t ret_buffer_length = sizeof(result->addrs) / sizeof(size_t);
+    intptr_t sig_buffer_size = strlen(sig);
+
+    uint8_t real_sig[256];
+    uint8_t real_sig_wildcard[256];
+    uint8_t real_sig_length = 0;
+
+    size_t prefix_wildcard_len = 0;
+    BOOL prefix_wildcard = 1;
+    for (i = 0; i < sig_buffer_size; i += 3) {
+        while (sig[i] == ' ') i++;
+        if (sig[i] == 0) break;
+        if (sig[i] == '?') {
+            if (prefix_wildcard) prefix_wildcard_len++; //eliminate prefix wildcards
+            else real_sig_wildcard[real_sig_length++] = 1;
+        }
+        else {
+            prefix_wildcard = 0;
+            real_sig_wildcard[real_sig_length] = 0;
+            sscanf_s(&sig[i], "%hhx", &real_sig[real_sig_length++]);
+        }
+    }
+
+    for (i = real_sig_length - 1; i > -1; i--) {
+        if (!real_sig_wildcard[i]) break;
+        real_sig_length--; //eliminate suffix wildcards
+    }
+
+    uint8_t* start_addr = udx->mem_buffer;
+    uint8_t* end_addr = start_addr + udx->mem_buffer_size - real_sig_length;
+
+    while (start_addr < end_addr && result->addrs_count < ret_buffer_length) {
+        size_t cur_addr = (size_t)(start_addr - udx->mem_buffer + udx->load_base);
+
+        for (i = 0; i < real_sig_length; i++) {
+            if (real_sig_wildcard[i]) continue;
+            if (start_addr[i] != (uint8_t)real_sig[i]) break;
+        }
+        if (i >= real_sig_length) {
+            ret_buffer[result->addrs_count++] = cur_addr - prefix_wildcard_len;
+        }
+
+        start_addr++;
+    }
+
+    return result->addrs_count;
+}
+
 int main()
 { 
     srand((unsigned int)time(0));
@@ -43,11 +98,23 @@ int main()
     udx_t udx_dst;
     udx_init(&udx_dst, buffer_new, file_size_new, 0x400000, 32);
 
-    /*udx_scan_result_t scan_res;
-    udx_scan_sig(&udx_dst, "?? ?? ?? ?? ?? 8B 48 04 8B 38 83 C1 32 8B 50 04 83 C7 14 8B 00 83 EA 32 83 E8 14 ?? ?? ??", &scan_res);
+    /*size_t test_count = 300;
+    udx_scan_result_t scan_res;
+    clock_t st = clock();
+    for (size_t i = 0; i < test_count; i++)
+    {
+        udx_scan_sig(&udx_dst,
+            "8D 4D DC 51 56 ?? ?? ?? ?? ?? ?? ?? FF ?? ?? ?? ?? ?? ?? ?? 79 0C ?? ??", &scan_res);
+    }
+    clock_t et = clock();
+    double time_elapsed = (double)(et - st) / CLOCKS_PER_SEC;
+    printf("Time: %.2fs, results count: %zd\n", time_elapsed, scan_res.addrs_count);
+    
     for (size_t i = 0; i < scan_res.addrs_count; i++) {
         printf("(%zd) %08zX\n", i + 1, scan_res.addrs[i]);
-    }*/
+    }
+    free(buffer_old);
+    free(buffer_new);*/
 
 
     for (size_t j = 99; j < 100; j++) {
@@ -68,49 +135,9 @@ int main()
             printf("%2zd %08zX\thit: %3zd, stability: %6.2f%%, similarity: %6.2f%%, probability: %6.2f%%\n",
                 i + 1, mig_addr->address, mig_addr->hit, mig_addr->stability, mig_addr->similarity, mig_addr->probability);
         }
-        system("pause");
     }
-
-
-    /*udx_sample_result_t sample_res;
-    size_t cnt = 0;
-    clock_t st = clock();
-    for (size_t i = 0; i < 100; i++)
-    {
-        udx_sample(&udx_old, &udx_new, 0x114884A, &sample_res, 0x50, 0x100);
-        if (sample_res.samples_count) {
-            printf("\n(%zd) Sig of %s%zX hit %zd results, get %zd address(s) -> \n%s\n", ++cnt,
-                (int32_t)(sample_res.addr_sig - sample_res.cached_addr_src) >= 0 ? "0x" : "-0x",
-                udx_abs(sample_res.addr_sig - sample_res.cached_addr_src),
-                sample_res.scan_result.addrs_count, sample_res.samples_count, sample_res.sig);
-            for (size_t j = 0; j < sample_res.samples_count; j++)
-            {
-                printf("%08zX Stability: %.2f%%\n", sample_res.samples[j].address, sample_res.samples[j].stability);
-            }
-        }
-    }
-    clock_t et = clock();
-    double time_elapsed = (double)(et - st) / CLOCKS_PER_SEC;
-    printf("Time elapsed: %.2fs\n", time_elapsed); */
-
-    //udx_sample(&udx_new, &udx_old, 0x1DE81CF, &sample_res);
-    //udx_sample(&udx_new, &udx_old, 0x1DE81CF, &sample_res);
-
-
-    //int32_t offsets[100];
-    //size_t noffsets = udx_gen_offsets_radius(&udx_new, 0x1DE8206, offsets, sizeof(offsets), 3);
-    //for (size_t i = 0; i < noffsets; i++)
-    //{
-    //    printf("(%zd) %X\n", i + 1, offsets[i]);
-    //} 
-
-    //udx_blk_t blks[100];
-    //size_t nblks = udx_gen_blks_radius(&udx_new, 0x01DE8250, blks, sizeof(blks), 30);
-    //for (size_t i = 0; i < nblks; i++)
-    //{
-    //    printf("(%d) %08zX\n", i + 1, blks[i].insn_addr);
-    //}
-
+    free(buffer_old);
+    free(buffer_new);
 
     //size_t max_round_from = 100, max_round_to = 100;
     //size_t radius_from = 10, radius_to = 10;
@@ -162,8 +189,8 @@ int main()
     //}
 
 
-    free(buffer_old);
-    free(buffer_new);
+    //free(buffer_old);
+    //free(buffer_new);
 
 
  /*   uint8_t data[] =

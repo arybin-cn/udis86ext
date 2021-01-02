@@ -16,8 +16,6 @@ extern "C" {
 #define UD_MATCH_HIGH 3
 #define UD_MATCH_ALL 4
 
-#define SIG_WILDCARD 0xFFFF
-
 #define DEF_THRESHOLD_DISP 0x50
 #define DEF_THRESHOLD_IMM 0x100
 

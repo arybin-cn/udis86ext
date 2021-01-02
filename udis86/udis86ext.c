@@ -183,13 +183,14 @@ size_t udx_scan_sig(udx_t* udx, char* sig, udx_scan_result_t* result) {
     result->addrs_count = 0;
     result->udx = udx;
 
+    intptr_t i;
     size_t* ret_buffer = result->addrs;
     size_t ret_buffer_length = sizeof(result->addrs) / sizeof(size_t);
     intptr_t sig_buffer_size = strlen(sig);
 
-    intptr_t i;
-    uint16_t real_sig[256] = { 0 };
-    uint8_t real_sig_size = 0;
+    uint8_t real_sig[256];
+    uint8_t real_sig_wildcard[256];
+    uint8_t real_sig_length = 0;
     
     size_t prefix_wildcard_len = 0;
     BOOL prefix_wildcard = 1;
@@ -198,29 +199,39 @@ size_t udx_scan_sig(udx_t* udx, char* sig, udx_scan_result_t* result) {
         if (sig[i] == 0) break;
         if (sig[i] == '?') {
             if (prefix_wildcard) prefix_wildcard_len++; //eliminate prefix wildcards
-            else real_sig[real_sig_size++] = SIG_WILDCARD;
+            else real_sig_wildcard[real_sig_length++] = 0;
         }
         else {
             prefix_wildcard = 0;
-            sscanf_s(&sig[i], "%hx", &real_sig[real_sig_size++]);
+            real_sig_wildcard[real_sig_length] = 0xFF;
+            sscanf_s(&sig[i], "%hhx", &real_sig[real_sig_length++]);
         }
     }
 
-    for (i = real_sig_size - 1; i > -1; i--) {
-        if (real_sig[i] != SIG_WILDCARD) break;
-        real_sig_size--; //eliminate suffix wildcards
+    for (i = 8 - (real_sig_length % 8); i > 0; i--) real_sig_wildcard[real_sig_length++] = 0x0;
+
+    uint64_t refined_sig[256 / 8];
+    uint64_t refined_sig_mask[256 / 8];
+    uint8_t refined_sig_len = 0;
+
+    for (i = 0; i < real_sig_length; i += 8) {
+        refined_sig[refined_sig_len] = *(uint64_t*)(real_sig + i);
+        refined_sig_mask[refined_sig_len] = *(uint64_t*)(real_sig_wildcard + i);
+        refined_sig_len++;
     }
 
     uint8_t* start_addr = udx->mem_buffer;
-    uint8_t* end_addr = start_addr + udx->mem_buffer_size - real_sig_size;
+    uint8_t* end_addr = start_addr + udx->mem_buffer_size - real_sig_length;
 
     while (start_addr < end_addr && result->addrs_count < ret_buffer_length) {
         size_t cur_addr = (size_t)(start_addr - udx->mem_buffer + udx->load_base);
-        for (i = 0; i < real_sig_size; i++) {
-            if (real_sig[i] == SIG_WILDCARD) continue;
-            if (start_addr[i] != (uint8_t)real_sig[i]) break;
+        for (i = 0; i < refined_sig_len; i++) {
+            uint64_t tmp = *(uint64_t*)(start_addr + (i << 3));
+            tmp ^= refined_sig[i];
+            tmp &= refined_sig_mask[i];
+            if (tmp) break;
         }
-        if (i >= real_sig_size) {
+        if (i >= refined_sig_len) {
             ret_buffer[result->addrs_count++] = cur_addr - prefix_wildcard_len;
         }
         start_addr++;
