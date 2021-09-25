@@ -338,8 +338,5 @@ ASALocalRun/
 
 # BeatPulse healthcheck temp database
 healthchecksdb
-/Res/CMS176.1.CEM
-/Res/CMS175.3.CEM
-/Res/CMS168.1.CEM
-/Res/CMS175.1.CEM
+/Res/*
 /Res/CMS174.1.CEM

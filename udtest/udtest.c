@@ -4,9 +4,9 @@
 #include <time.h>
 #include <stdlib.h> 
 
-#define DUMP_FILE_FROM "..\\Res\\CMS168.1.CEM"
-#define DUMP_FILE_TO "..\\Res\\CMS176.1.CEM"
-#define TEST_COUNT 100
+#define DUMP_FILE_FROM "..\\Res\\TWMs236.1.CEM"
+#define DUMP_FILE_TO "..\\Res\\TWMS236.2.CEM"
+#define TEST_COUNT 10
 
 size_t udx_scan_sig_old(udx_t* udx, char* sig, udx_scan_result_t* result) {
     if (!result) return 0;
@@ -115,29 +115,52 @@ int main()
     }
     free(buffer_old);
     free(buffer_new);*/
+    while (1)
+    {
+		size_t src_addr = 0;
+        printf("Input src addr:\n");
+		scanf_s("%x", &src_addr);
+        if (src_addr < 0x400000) continue;
+		printf("Migrate for 0x%08X started!\n", src_addr);
 
+		clock_t st = clock();
+		udx_migrate_result_t mig_res;
+		src_addr = udx_insn_align(&udx_src, src_addr);
+		size_t sample_cnt = 10;
+		udx_migrate(&udx_src, &udx_dst, src_addr, &mig_res, 0x50, 0x100, sample_cnt);
+		clock_t et = clock();
+		double time_elapsed = (double)(et - st) / CLOCKS_PER_SEC;
+		printf("\nMigrate for %08zX completed, %zd/%zd signatures hit %zd address(s), time elapsed: %.2fs\n\n",
+			src_addr, mig_res.hit, mig_res.total, mig_res.mig_count, time_elapsed);
+		for (size_t i = 0; i < mig_res.mig_count; i++)
+		{
+			udx_addr_t* mig_addr = mig_res.migs + i;
+			printf("%2zd %08zX\thit: %3zd, stability: %6.2f%%, similarity: %6.2f%%, probability: %6.2f%%\n",
+				i + 1, mig_addr->address, mig_addr->hit, mig_addr->stability, mig_addr->similarity, mig_addr->probability);
+		}
+    } 
 
-    for (size_t j = 99; j < 100; j++) {
-        clock_t st = clock();
-        udx_migrate_result_t mig_res;
-        //size_t src_addr = 0x401000 + (rand() * rand() % (udx_src.mem_buffer_size / 2 - 0x1000));
-        size_t src_addr = 0x1BF3764;
-        src_addr = udx_insn_align(&udx_src, src_addr);
-        size_t sample_cnt = 500;
-        udx_migrate(&udx_src, &udx_dst, src_addr, &mig_res, 0x50, 0x100, sample_cnt);
-        clock_t et = clock();
-        double time_elapsed = (double)(et - st) / CLOCKS_PER_SEC;
-        printf("\nMigrate for %08zX completed, %zd/%zd signatures hit %zd address(s), time elapsed: %.2fs\n\n",
-            src_addr, mig_res.hit, mig_res.total, mig_res.mig_count, time_elapsed);
-        for (size_t i = 0; i < mig_res.mig_count; i++)
-        {
-            udx_addr_t* mig_addr = mig_res.migs + i;
-            printf("%2zd %08zX\thit: %3zd, stability: %6.2f%%, similarity: %6.2f%%, probability: %6.2f%%\n",
-                i + 1, mig_addr->address, mig_addr->hit, mig_addr->stability, mig_addr->similarity, mig_addr->probability);
-        }
-    }
-    free(buffer_old);
-    free(buffer_new);
+    //for (size_t j = 99; j < 100; j++) {
+    //    clock_t st = clock();
+    //    udx_migrate_result_t mig_res;
+    //    //size_t src_addr = 0x401000 + (rand() * rand() % (udx_src.mem_buffer_size / 2 - 0x1000));
+    //    size_t src_addr = 0x0968696;
+    //    src_addr = udx_insn_align(&udx_src, src_addr);
+    //    size_t sample_cnt = 500;
+    //    udx_migrate(&udx_src, &udx_dst, src_addr, &mig_res, 0x50, 0x100, sample_cnt);
+    //    clock_t et = clock();
+    //    double time_elapsed = (double)(et - st) / CLOCKS_PER_SEC;
+    //    printf("\nMigrate for %08zX completed, %zd/%zd signatures hit %zd address(s), time elapsed: %.2fs\n\n",
+    //        src_addr, mig_res.hit, mig_res.total, mig_res.mig_count, time_elapsed);
+    //    for (size_t i = 0; i < mig_res.mig_count; i++)
+    //    {
+    //        udx_addr_t* mig_addr = mig_res.migs + i;
+    //        printf("%2zd %08zX\thit: %3zd, stability: %6.2f%%, similarity: %6.2f%%, probability: %6.2f%%\n",
+    //            i + 1, mig_addr->address, mig_addr->hit, mig_addr->stability, mig_addr->similarity, mig_addr->probability);
+    //    }
+    //}
+    //free(buffer_old);
+    //free(buffer_new);
 
     //size_t max_round_from = 100, max_round_to = 100;
     //size_t radius_from = 10, radius_to = 10;
