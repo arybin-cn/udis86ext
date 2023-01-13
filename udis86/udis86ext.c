@@ -3,6 +3,7 @@
 #include <float.h>
 
 #include "udis86ext.h"
+ 
 
 void udx_init(udx_t* udx, uint8_t* mem_buffer, size_t mem_buffer_size, size_t load_base, uint8_t mode) {
     udx->mode = mode;
@@ -397,7 +398,7 @@ size_t udx_insn_search(udx_t* udx, size_t target_addr, ud_mnemonic_code_t mnemon
 ud_mnemonic_code_t udx_insn_mnemonic(udx_t* udx, size_t addr) {
     ud_t ud;
     udx_init_ud(udx, &ud, addr);
-    ud_mnemonic_code_t mnemonic = 0;
+    ud_mnemonic_code_t mnemonic = (ud_mnemonic_code_t)0;
     if (ud_disassemble(&ud)) {
         mnemonic = ud_insn_mnemonic(&ud);
     }
@@ -455,7 +456,7 @@ size_t udx_migrate(udx_t* udx_src, udx_t* udx_dst, size_t addr_src, udx_migrate_
         if (!addr_cnt_tmp) continue;
         total_hit_cnt++;
 
-        printf("\n(%zd) Sig of %s%X hit %zd results, stability: %.2lf%%, %08zX -> %08zX\n%s\n", total_hit_cnt,
+        printf("\n(%zd) Sig of %s%X hit %zd results, stability: %.2lf%%, 0x%08zX -> 0x%08zX\n%s\n", total_hit_cnt,
             (int32_t)(sample_res.addr_sig - sample_res.cached_addr_src) >= 0 ? " 0x" : "-0x",
             (int32_t)udx_abs(sample_res.addr_sig - sample_res.cached_addr_src), 
             sample_res.scan_result.addrs_count,

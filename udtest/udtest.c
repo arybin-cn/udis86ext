@@ -4,8 +4,8 @@
 #include <time.h>
 #include <stdlib.h> 
 
-#define DUMP_FILE_FROM "..\\Res\\TWMs236.1.CEM"
-#define DUMP_FILE_TO "..\\Res\\TWMS236.2.CEM"
+#define DUMP_FILE_FROM "FROM.CEM"
+#define DUMP_FILE_TO "TO.CEM"
 #define TEST_COUNT 10
 
 size_t udx_scan_sig_old(udx_t* udx, char* sig, udx_scan_result_t* result) {
@@ -94,9 +94,9 @@ int main()
     printf("Migrate from %s to %s\n", DUMP_FILE_FROM, DUMP_FILE_TO);
 
     udx_t udx_src;
-    udx_init(&udx_src, buffer_old, file_size_old, 0x400000, 32);
+    udx_init(&udx_src, buffer_old, file_size_old, 0x140000000, 64);
     udx_t udx_dst;
-    udx_init(&udx_dst, buffer_new, file_size_new, 0x400000, 32);
+    udx_init(&udx_dst, buffer_new, file_size_new, 0x140000000, 64);
 
     /*size_t test_count = 300;
     udx_scan_result_t scan_res;
@@ -115,22 +115,25 @@ int main()
     }
     free(buffer_old);
     free(buffer_new);*/
+
+    printf("Hello\n");
+
     while (1)
     {
 		size_t src_addr = 0;
         printf("Input src addr:\n");
-		scanf_s("%x", &src_addr);
-        if (src_addr < 0x400000) continue;
-		printf("Migrate for 0x%08X started!\n", src_addr);
+		scanf_s("%llX", &src_addr);
+        if (src_addr < 0x140000000) continue;
+		printf("Migrate for 0x%llX started!\n", src_addr);
 
 		clock_t st = clock();
 		udx_migrate_result_t mig_res;
 		src_addr = udx_insn_align(&udx_src, src_addr);
-		size_t sample_cnt = 10;
+		size_t sample_cnt = 5;
 		udx_migrate(&udx_src, &udx_dst, src_addr, &mig_res, 0x50, 0x100, sample_cnt);
 		clock_t et = clock();
 		double time_elapsed = (double)(et - st) / CLOCKS_PER_SEC;
-		printf("\nMigrate for %08zX completed, %zd/%zd signatures hit %zd address(s), time elapsed: %.2fs\n\n",
+		printf("\nMigrate for %zX completed, %zd/%zd signatures hit %zd address(s), time elapsed: %.2fs\n\n",
 			src_addr, mig_res.hit, mig_res.total, mig_res.mig_count, time_elapsed);
 		for (size_t i = 0; i < mig_res.mig_count; i++)
 		{

@@ -56,8 +56,8 @@ typedef struct {
 }udx_addr_t;
 
 #define SAMPLE_RES_SIZE 4
-#define SAMPLE_SIG_INSN_CNT_MIN 5
-#define SAMPLE_SIG_INSN_CNT_MAX 15
+#define SAMPLE_SIG_INSN_CNT_MIN 3
+#define SAMPLE_SIG_INSN_CNT_MAX 10
 #define SAMPLE_SIG_SIZE (SAMPLE_SIG_INSN_CNT_MAX*AVERAGE_INSN_LENGTH*3)
 typedef struct {
     size_t cached_addr_src;
